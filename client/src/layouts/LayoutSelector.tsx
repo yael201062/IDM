@@ -4,9 +4,8 @@ import WorkerLayout from './WorkerLayout'
 import ManagerLayout from './ManagerLayout'
 import HRLayout from './HRLayout'
 import ITLayout from './ITLayout'
-import { Outlet } from 'react-router-dom'
 
-const LayoutSelector: React.FC = () => {
+const LayoutSelector: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   const { role } = useUser()
 
   const Layout = {
@@ -16,11 +15,7 @@ const LayoutSelector: React.FC = () => {
     it: ITLayout,
   }[role] || WorkerLayout
 
-  return (
-    <Layout>
-      <Outlet />
-    </Layout>
-  )
+  return <Layout>{children}</Layout>
 }
 
 export default LayoutSelector

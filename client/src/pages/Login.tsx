@@ -1,7 +1,16 @@
-// src/pages/Login.tsx
+
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const Login: React.FC = () => {
+  const navigate = useNavigate();
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('Login successful');
+    navigate('/'); 
+  };
+
   return (
     <div className="flex min-h-screen">
       <div className="w-1/2 bg-gradient-to-b from-blue-500 to-blue-700 flex flex-col items-center justify-center text-white p-10">
@@ -14,12 +23,13 @@ const Login: React.FC = () => {
           <h2 className="text-3xl font-semibold mb-2">Login</h2>
           <p className="mb-6 text-gray-500">Sign in to continue</p>
 
-          <form>
+          <form onSubmit={handleSubmit}>
             <label className="block text-sm text-gray-600 mb-1">EMAIL:</label>
             <input
               type="email"
               placeholder="example@example.com"
               className="w-full mb-4 px-4 py-3 bg-gray-100 rounded-full outline-none"
+              required
             />
 
             <label className="block text-sm text-gray-600 mb-1">PASSWORD:</label>
@@ -27,6 +37,7 @@ const Login: React.FC = () => {
               type="password"
               placeholder="*************"
               className="w-full mb-2 px-4 py-3 bg-gray-100 rounded-full outline-none"
+              required
             />
 
             <div className="text-right text-sm text-gray-400 mb-6 cursor-pointer hover:underline">

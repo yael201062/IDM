@@ -3,6 +3,7 @@ import {
   PencilSquareIcon,
   PlusCircleIcon,
 } from '@heroicons/react/24/outline'
+import { Link } from 'react-router-dom'
 
 const DashboardPage: React.FC = () => {
   return (

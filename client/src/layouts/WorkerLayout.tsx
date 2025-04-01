@@ -1,6 +1,7 @@
 import React, { ReactNode } from 'react'
 import { Outlet } from 'react-router-dom'
 import Header from './Header'
+import SidebarItem from '../components/SidebarItem'
 
 import {
   HomeIcon,
@@ -27,21 +28,21 @@ const WorkerLayout: React.FC<Props> = ({ children }) => {
             <img src="/idm-logo.png" alt="IDM" className="w-16 mx-auto mb-4" />
           </div>
           <nav className="p-4 space-y-4 text-sm">
-            <SidebarItem label="Dashboard" icon={HomeIcon} active />
-            <SidebarItem label="Personal details" icon={UserIcon} />
-            <SidebarItem label="Attendance" icon={ClockIcon} />
-            <SidebarItem label="My requests" icon={FolderIcon} />
-            <SidebarItem label="Notifications" icon={BellIcon} />
+            <SidebarItem label="Dashboard" icon={HomeIcon} to="/" />
+            <SidebarItem label="Personal details" icon={UserIcon} to="/personal-details" />
+            <SidebarItem label="Attendance" icon={ClockIcon} to="/attendance" />
+            <SidebarItem label="My requests" icon={FolderIcon} to="/my-requests" />
+            <SidebarItem label="Notifications" icon={BellIcon} to="/notifications" />
           </nav>
         </div>
         <div className="p-4 space-y-3 text-sm border-t border-gray-700">
-          <SidebarItem label="Call Center" icon={PhoneIcon} />
-          <SidebarItem label="Help" icon={QuestionMarkCircleIcon} />
-          <SidebarItem label="Log Out" icon={ArrowRightOnRectangleIcon} />
+          <SidebarItem label="Call Center" icon={PhoneIcon} to="/call-center" />
+          <SidebarItem label="Help" icon={QuestionMarkCircleIcon} to="/help" />
+          <SidebarItem label="Log Out" icon={ArrowRightOnRectangleIcon} to="/logout" />
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* Main content area */}
       <div className="flex-1 flex flex-col">
         <Header />
         <main className="flex-1 overflow-y-auto p-6 bg-gray-100">
@@ -53,22 +54,3 @@ const WorkerLayout: React.FC<Props> = ({ children }) => {
 }
 
 export default WorkerLayout
-
-const SidebarItem = ({
-  label,
-  icon: Icon,
-  active = false,
-}: {
-  label: string
-  icon: React.ElementType
-  active?: boolean
-}) => (
-  <div
-    className={`flex items-center gap-3 px-4 py-2 rounded cursor-pointer ${
-      active ? 'bg-blue-500 text-white' : 'hover:bg-gray-800 text-gray-300'
-    }`}
-  >
-    <Icon className="h-5 w-5" />
-    <span>{label}</span>
-  </div>
-)
