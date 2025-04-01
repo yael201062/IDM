@@ -36,9 +36,13 @@
 
 import React from 'react';
 import Login from './pages/Login';
+import WorkerDashboard from './pages/WorkerDashboard';
 
 function App() {
+  return <WorkerDashboard />;
+
   return <Login />;
+
 }
 
 export default App;
