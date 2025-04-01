@@ -7,6 +7,9 @@ import Login from './pages/Login'
 import Attendance from './pages/Attendance'
 import MyRequests from './pages/MyRequests'
 import MyEmployees from './pages/MyEmployees'
+import EmployeeTable from './pages/EmployeeTable'
+import PermissionsPage from './pages/PermissionsPage'
+import RolesPage from './pages/Roles'
 
 const Placeholder = ({ title }: { title: string }) => (
   <div className="p-10 text-2xl">{title}</div>
@@ -15,16 +18,17 @@ const Placeholder = ({ title }: { title: string }) => (
 const App: React.FC = () => {
   return (
     <Routes>
-      {/* Login route מחוץ ל-layout */}
       <Route path="/login" element={<Login />} />
 
-      {/* Routes עם תפריט צד ולייאאוט */}
       <Route element={<LayoutSelector />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/personal-details" element={<PersonalDetails />} />
         <Route path="/attendance" element={<Attendance />} />
         <Route path="/my-requests" element={<MyRequests />} />
         <Route path="/my-employees" element={<MyEmployees />} />
+        <Route path="/employees" element={<EmployeeTable />} />
+        <Route path="/permissions" element={<PermissionsPage />} />
+        <Route path="/roles" element={<RolesPage />} />
         <Route path="/notifications" element={<Placeholder title="Notifications Page" />} />
         <Route path="/call-center" element={<Placeholder title="Call Center Page" />} />
         <Route path="/help" element={<Placeholder title="Help Page" />} />
