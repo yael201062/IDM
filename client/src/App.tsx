@@ -1,18 +1,18 @@
-import React from 'react';
-import { Routes, Route } from 'react-router-dom';
-import WorkerLayout from './layouts/WorkerLayout';
-import WorkerDashboard from './pages/WorkerDashboard';
-import PersonalDetails from './pages/PersonalDetails';
+import React from 'react'
+import { Routes, Route } from 'react-router-dom'
+import LayoutSelector from './layouts/LayoutSelector'
+import Dashboard from './pages/shared/Dashboard'
+import PersonalDetails from './pages/shared/PersonalDetails'
 
 const App: React.FC = () => {
   return (
     <Routes>
-      <Route element={<WorkerLayout />}>
-        <Route path="/" element={<WorkerDashboard />} />
+      <Route element={<LayoutSelector />}>
+        <Route path="/" element={<Dashboard />} />
         <Route path="/personal-details" element={<PersonalDetails />} />
       </Route>
     </Routes>
-  );
-};
+  )
+}
 
-export default App;
+export default App

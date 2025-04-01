@@ -8,6 +8,7 @@ import {
   ClockIcon,
   FolderIcon,
   BellIcon,
+  UsersIcon,
   PhoneIcon,
   QuestionMarkCircleIcon,
   ArrowRightOnRectangleIcon,
@@ -17,7 +18,7 @@ interface Props {
   children?: ReactNode
 }
 
-const WorkerLayout: React.FC<Props> = ({ children }) => {
+const ManagerLayout: React.FC<Props> = ({ children }) => {
   return (
     <div className="flex h-screen w-full overflow-hidden font-sans">
       {/* Sidebar */}
@@ -32,6 +33,7 @@ const WorkerLayout: React.FC<Props> = ({ children }) => {
             <SidebarItem label="Attendance" icon={ClockIcon} />
             <SidebarItem label="My requests" icon={FolderIcon} />
             <SidebarItem label="Notifications" icon={BellIcon} />
+            <SidebarItem label="My employees" icon={UsersIcon} />
           </nav>
         </div>
         <div className="p-4 space-y-3 text-sm border-t border-gray-700">
@@ -52,7 +54,7 @@ const WorkerLayout: React.FC<Props> = ({ children }) => {
   )
 }
 
-export default WorkerLayout
+export default ManagerLayout
 
 const SidebarItem = ({
   label,
