@@ -4,8 +4,8 @@ import Dashboard from './pages/Dashboard'
 import PersonalDetails from './pages/PersonalDetails'
 import { Routes, Route } from 'react-router-dom'
 import Login from './pages/Login'
-import WorkerLayout from './layouts/WorkerLayout'
 import Attendance from './pages/Attendance'
+import MyRequests from './pages/MyRequests'
 
 const Placeholder = ({ title }: { title: string }) => (
   <div className="p-10 text-2xl">{title}</div>
@@ -18,11 +18,11 @@ const App: React.FC = () => {
       <Route path="/login" element={<Login />} />
 
       {/* Routes עם תפריט צד ולייאאוט */}
-      <Route element={<WorkerLayout />}>
+      <Route element={<LayoutSelector />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/personal-details" element={<PersonalDetails />} />
         <Route path="/attendance" element={<Attendance />} />
-        <Route path="/my-requests" element={<Placeholder title="My Requests Page" />} />
+        <Route path="/my-requests" element={<MyRequests />} />
         <Route path="/notifications" element={<Placeholder title="Notifications Page" />} />
         <Route path="/call-center" element={<Placeholder title="Call Center Page" />} />
         <Route path="/help" element={<Placeholder title="Help Page" />} />
