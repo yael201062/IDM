@@ -5,6 +5,7 @@ import PersonalDetails from './pages/PersonalDetails'
 import { Routes, Route } from 'react-router-dom'
 import Login from './pages/Login'
 import WorkerLayout from './layouts/WorkerLayout'
+import Attendance from './pages/Attendance'
 
 const Placeholder = ({ title }: { title: string }) => (
   <div className="p-10 text-2xl">{title}</div>
@@ -20,7 +21,7 @@ const App: React.FC = () => {
       <Route element={<WorkerLayout />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/personal-details" element={<PersonalDetails />} />
-        <Route path="/attendance" element={<Placeholder title="Attendance Page" />} />
+        <Route path="/attendance" element={<Attendance />} />
         <Route path="/my-requests" element={<Placeholder title="My Requests Page" />} />
         <Route path="/notifications" element={<Placeholder title="Notifications Page" />} />
         <Route path="/call-center" element={<Placeholder title="Call Center Page" />} />
