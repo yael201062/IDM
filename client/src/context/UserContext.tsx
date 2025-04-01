@@ -9,7 +9,7 @@ interface User {
 
 const defaultUser: User = {
   name: 'John Doe',
-  role: 'worker',
+  role: 'it',
 }
 
 export const UserContext = createContext<User>(defaultUser)

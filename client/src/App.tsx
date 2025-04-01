@@ -6,6 +6,7 @@ import { Routes, Route } from 'react-router-dom'
 import Login from './pages/Login'
 import Attendance from './pages/Attendance'
 import MyRequests from './pages/MyRequests'
+import MyEmployees from './pages/MyEmployees'
 
 const Placeholder = ({ title }: { title: string }) => (
   <div className="p-10 text-2xl">{title}</div>
@@ -23,6 +24,7 @@ const App: React.FC = () => {
         <Route path="/personal-details" element={<PersonalDetails />} />
         <Route path="/attendance" element={<Attendance />} />
         <Route path="/my-requests" element={<MyRequests />} />
+        <Route path="/my-employees" element={<MyEmployees />} />
         <Route path="/notifications" element={<Placeholder title="Notifications Page" />} />
         <Route path="/call-center" element={<Placeholder title="Call Center Page" />} />
         <Route path="/help" element={<Placeholder title="Help Page" />} />
