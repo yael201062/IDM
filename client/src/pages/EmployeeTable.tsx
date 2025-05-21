@@ -1,66 +1,56 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Search } from 'lucide-react'
+import NewEmployeeForm from './NewEmployeeForm'
 
-const employees = [
-  {
-    name: 'Justin Biber',
-    id: '123456',
-    role: 'Customer service',
-    phone: '051-1111111',
-    email: 'justin@example.com',
-    start: '1/1/2025',
-    end: '2/10/2025',
-  },
-  {
-    name: 'Moran Gur',
-    id: '234567',
-    role: 'Marketing',
-    phone: '051-1111111',
-    email: 'moran@example.com',
-    start: '13/9/2024',
-    end: '',
-  },
-  {
-    name: 'Gilad Dor',
-    id: '957391',
-    role: 'System',
-    phone: '051-1111111',
-    email: 'gilad@example.com',
-    start: '2/1/1999',
-    end: '',
-  },
-  {
-    name: 'Mor Nissan',
-    id: '456789',
-    role: 'Security',
-    phone: '051-1111111',
-    email: 'mor@example.com',
-    start: '3/3/2023',
-    end: '',
-  },
-  {
-    name: 'Yoram Levin',
-    id: '2429471',
-    role: 'business support',
-    phone: '051-1111111',
-    email: 'yoram@example.com',
-    start: '1/1/2025',
-    end: '10/4/2025',
-  },
-]
+export type Employee = {
+  name: string
+  id: string
+  role: string
+  phone: string
+  email: string
+  start: string
+  end: string
+}
 
 const EmployeeTable: React.FC = () => {
   const [search, setSearch] = useState('')
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [showForm, setShowForm] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  const fetchEmployees = async () => {
+    try {
+      setLoading(true)
+      const res = await fetch('http://localhost:5000/api/employees')
+      const data = await res.json()
+      setEmployees(data)
+    } catch (error) {
+      console.error('Failed to fetch employees:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchEmployees()
+  }, [])
 
   const filtered = employees.filter((emp) =>
     emp.name.toLowerCase().includes(search.toLowerCase())
   )
 
+  const handleAddEmployee = async () => {
+    await fetchEmployees()
+  }
+
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">Employee Management</h2>
-        <button className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition text-sm flex items-center gap-2">
+        <button
+          onClick={() => setShowForm(true)}
+          className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition text-sm flex items-center gap-2"
+        >
           <span>New Employee</span>
         </button>
       </div>
@@ -78,34 +68,47 @@ const EmployeeTable: React.FC = () => {
         </button>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-sm text-left text-gray-700">
-          <thead className="bg-gray-100 text-gray-500 uppercase text-xs">
-            <tr>
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">ID</th>
-              <th className="px-4 py-3">Role</th>
-              <th className="px-4 py-3">Phone number</th>
-              <th className="px-4 py-3">Email</th>
-              <th className="px-4 py-3">Start date</th>
-              <th className="px-4 py-3">End date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((emp, i) => (
-              <tr key={i} className="border-b hover:bg-gray-50">
-                <td className="px-4 py-3">{emp.name}</td>
-                <td className="px-4 py-3">{emp.id}</td>
-                <td className="px-4 py-3">{emp.role}</td>
-                <td className="px-4 py-3">{emp.phone}</td>
-                <td className="px-4 py-3">{emp.email}</td>
-                <td className="px-4 py-3">{emp.start}</td>
-                <td className="px-4 py-3">{emp.end || '-'}</td>
+      {loading ? (
+        <div className="flex justify-center items-center h-40">
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm text-left text-gray-700">
+            <thead className="bg-gray-100 text-gray-500 uppercase text-xs">
+              <tr>
+                <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3">ID</th>
+                <th className="px-4 py-3">Role</th>
+                <th className="px-4 py-3">Phone</th>
+                <th className="px-4 py-3">Email</th>
+                <th className="px-4 py-3">Start</th>
+                <th className="px-4 py-3">End</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {filtered.map((emp, i) => (
+                <tr key={i} className="border-b hover:bg-gray-50">
+                  <td className="px-4 py-3">{emp.name}</td>
+                  <td className="px-4 py-3">{emp.id}</td>
+                  <td className="px-4 py-3">{emp.role}</td>
+                  <td className="px-4 py-3">{emp.phone}</td>
+                  <td className="px-4 py-3">{emp.email}</td>
+                  <td className="px-4 py-3">{emp.start}</td>
+                  <td className="px-4 py-3">{emp.end || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {showForm && (
+        <NewEmployeeForm
+          onClose={() => setShowForm(false)}
+          onSubmit={handleAddEmployee}
+        />
+      )}
     </div>
   )
 }
