@@ -8,6 +8,7 @@ const EmployeeSchema = new mongoose.Schema({
   email: String,
   start: String,
   end: String,
+  password: String,
 })
 
 module.exports = mongoose.model('Employee', EmployeeSchema)

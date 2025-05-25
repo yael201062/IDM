@@ -14,3 +14,4 @@ const defaultUser: User = {
 
 export const UserContext = createContext<User>(defaultUser)
 export const useUser = () => useContext(UserContext)
+
