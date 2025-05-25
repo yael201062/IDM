@@ -1,32 +1,81 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
+import { jwtDecode } from 'jwt-decode'
+import { useUser } from '../context/UserContext'
 import {
   PencilSquareIcon,
   PlusCircleIcon,
 } from '@heroicons/react/24/outline'
-import { Link } from 'react-router-dom'
+
+type DecodedToken = {
+  empId: string
+  email: string
+  exp: number
+}
+
+type User = {
+  name: string
+  id: string
+  role: string
+  position?: string
+  status?: string
+}
 
 const DashboardPage: React.FC = () => {
+  const { token } = useUser()
+  const [user, setUser] = useState<User | null>(null)
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      if (!token) {
+        console.log('No token in context')
+        return
+      }
+
+      try {
+        const decoded: DecodedToken = jwtDecode(token)
+        console.log('Decoded token:', decoded)
+
+        const res = await fetch(`http://localhost:5000/api/employees/${decoded.empId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+
+        const data = await res.json()
+        console.log('User data:', data)
+        setUser(data)
+      } catch (err) {
+        console.error('Failed to fetch user info', err)
+      }
+    }
+
+    fetchUser()
+  }, [token])
+
   return (
     <div className="p-6 grid grid-cols-2 gap-6">
       {/* My Information */}
       <div className="bg-white shadow rounded-lg p-6">
         <h2 className="text-lg font-semibold mb-4">My Information</h2>
+
         <div className="bg-gradient-to-r from-blue-400 to-blue-600 text-white text-xl rounded-xl p-4 mb-4">
-          <p className="font-bold">Justin Biber</p>
-          <p className="text-sm">123456789</p>
+          <p className="font-bold">{user?.name || '...'}</p>
+          <p className="text-sm">{user?.id || ''}</p>
         </div>
+
         <div className="text-sm mb-4">
           <p className="text-gray-700">Position</p>
           <div className="flex flex-col gap-1 mt-2">
             <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs w-fit">
-              technology
+              {user?.role || ''}
             </span>
             <span className="font-bold text-blue-600 text-sm">
-              full stack developer
+              {user?.position || ''}
             </span>
           </div>
-          <p className="text-blue-500 mt-2 text-xs">Activated</p>
+          <p className="text-blue-500 mt-2 text-xs">{user?.status || 'Activated'}</p>
         </div>
+
         <div className="flex gap-2">
           <button className="bg-blue-500 text-white rounded-lg px-4 py-2 text-sm flex items-center gap-2">
             <PencilSquareIcon className="h-5 w-5" />
