@@ -20,13 +20,15 @@ type DecodedToken = {
 
 type Employee = {
   name: string
+  firstName: string
+  lastName: string
   id: string
   role: string
   phone: string
   email: string
   position?: string
   address?: string
-  birthDate?: string
+  birthday?: string
   status?: string
 }
 
@@ -94,10 +96,10 @@ const PersonalDetails: React.FC = () => {
       <div className="bg-white shadow rounded-lg p-6">
         <h2 className="text-lg font-semibold mb-4">Edit Personal Details</h2>
         <div className="divide-y text-sm">
-          <EditableDetailRow label="First Name" value={firstName} editable={true} Icon={UserIcon} />
-          <EditableDetailRow label="Last Name" value={lastName} editable={true} Icon={UserIcon} />
+          <EditableDetailRow label="First Name" value={employee.firstName} editable={true} Icon={UserIcon} />
+          <EditableDetailRow label="Last Name" value={employee.lastName} editable={true} Icon={UserIcon} />
           <EditableDetailRow label="ID" value={employee.id} editable={false} Icon={IdentificationIcon} />
-          <EditableDetailRow label="Birth Date" value={employee.birthDate || '—'} editable={false} Icon={CalendarIcon} />
+          <EditableDetailRow label="Birth Date" value={employee.birthday || '—'} editable={false} Icon={CalendarIcon} />
           <EditableDetailRow label="Address" value={employee.address || ''} editable={true} Icon={MapPinIcon} />
           <EditableDetailRow label="Phone" value={employee.phone} editable={true} Icon={PhoneIcon} />
           <EditableDetailRow label="Email" value={employee.email} editable={true} Icon={EnvelopeIcon} />

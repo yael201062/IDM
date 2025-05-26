@@ -8,28 +8,46 @@ require('dotenv').config()
 // יצירת עובד חדש + משתמש AD + סיסמה מוצפנת בדאטהבייס
 router.post('/', async (req, res) => {
   try {
-    const { name, id, role, phone, email, start, end } = req.body
-    const adUser = process.env.AD_USERNAME
-    const adPass = process.env.AD_PASSWORD
-
-    // סיסמה זמנית
-    const plainPassword = 'Password123!'
-    const hashedPassword = await bcrypt.hash(plainPassword, 10)
-
-    // שמירת העובד במסד
-    const emp = new Employee({
-      name,
+    const {
+      firstName,
+      lastName,
       id,
       role,
       phone,
       email,
       start,
       end,
-      password: hashedPassword, // נשמרת מוצפנת
-    })
-    await emp.save()
+      birthday,
+    } = req.body
 
-    // הכנה לפקודת PowerShell
+    const existing = await Employee.findOne({ id })
+    if (existing) {
+      return res.status(400).json({ error: 'Employee with this ID already exists' })
+    }
+
+    const name = `${firstName}-${lastName}`
+    const plainPassword = 'Password123!'
+    const hashedPassword = await bcrypt.hash(plainPassword, 10)
+
+    const employee = new Employee({
+      name,
+      firstName,
+      lastName,
+      id,
+      role,
+      phone,
+      email,
+      start,
+      end,
+      birthday,
+      password: hashedPassword,
+    })
+
+    await employee.save()
+
+    // צור גם משתמש ב-AD
+    const adUser = process.env.AD_USERNAME
+    const adPass = process.env.AD_PASSWORD
     const psCommand = [
       `$password = ConvertTo-SecureString '${adPass}' -AsPlainText -Force;`,
       `$cred = New-Object System.Management.Automation.PSCredential('${adUser}', $password);`,
@@ -44,24 +62,20 @@ router.post('/', async (req, res) => {
       `-Enabled $true`,
       `-ChangePasswordAtLogon $true`,
       `-Path 'CN=Users,DC=IDM,DC=local'`,
-      `-Credential $cred`
+      `-Credential $cred`,
     ].join(' ')
 
     exec(`powershell.exe -Command "${psCommand}"`, (err, stdout, stderr) => {
-      console.log('STDOUT:', stdout)
-      console.log('STDERR:', stderr)
-
-      if (err || stderr.toLowerCase().includes('error') || stderr.toLowerCase().includes('denied')) {
-        console.error(`❌ AD Error: ${stderr}`)
-        return res.status(500).json({ error: 'Employee saved, but failed to create AD user' })
+      if (err || stderr.toLowerCase().includes('error')) {
+        console.error('AD Error:', stderr)
+        return res.status(500).json({ error: 'Employee created, but AD failed' })
       }
 
-      console.log(`✅ AD User created successfully`)
-      res.status(201).json(emp)
+      return res.status(201).json({ message: 'Employee created successfully' })
     })
   } catch (err) {
-    console.error('❌ Server error:', err)
-    res.status(500).json({ error: 'Server error' })
+    console.error('Server error:', err)
+    res.status(500).json({ error: 'Internal server error' })
   }
 })
 

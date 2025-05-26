@@ -1,9 +1,11 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 const ChangePassword: React.FC = () => {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [message, setMessage] = useState('')
+const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,6 +27,7 @@ const ChangePassword: React.FC = () => {
       const data = await res.json()
       if (res.ok) {
         setMessage('Password changed successfully! You can now log in.')
+        navigate('/')
       } else {
         setMessage(data.error || 'Failed to change password.')
       }

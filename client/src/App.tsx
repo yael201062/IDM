@@ -10,6 +10,7 @@ import MyEmployees from './pages/MyEmployees'
 import EmployeeTable from './pages/EmployeeTable'
 import PermissionsPage from './pages/PermissionsPage'
 import RolesPage from './pages/Roles'
+import ChangePassword from './pages/ChangePassword'
 
 const Placeholder = ({ title }: { title: string }) => (
   <div className="p-10 text-2xl">{title}</div>
@@ -19,7 +20,7 @@ const App: React.FC = () => {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-
+      <Route path="/change-password" element={<ChangePassword />} />
       <Route element={<LayoutSelector />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/personal-details" element={<PersonalDetails />} />
