@@ -5,6 +5,7 @@ require('dotenv').config()
 
 const employeeRoutes = require('./routes/employees')
 const loginRoutes = require('./routes/login')
+const attendanceRoutes = require('./routes/attendance')
 
 const app = express()
 app.use(cors())
@@ -12,7 +13,7 @@ app.use(express.json())
 
 app.use('/api/employees', employeeRoutes)
 app.use('/api/login', loginRoutes)
-app.use('api/me', employeeRoutes) 
+app.use('/api/attendance', attendanceRoutes)
 
 mongoose.connect('mongodb://127.0.0.1:27017/IDM')
 .then(() => console.log('MongoDB connected'))

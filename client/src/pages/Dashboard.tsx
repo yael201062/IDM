@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react'
+import { CircularProgressbar, buildStyles } from 'react-circular-progressbar'
+import 'react-circular-progressbar/dist/styles.css'
 import { jwtDecode } from 'jwt-decode'
 import { useUser } from '../context/UserContext'
 import {
@@ -18,6 +20,9 @@ type User = {
   role: string
   position?: string
   status?: string
+  vacationDays: number
+  sickDays: number
+  workHours: number
 }
 
 const DashboardPage: React.FC = () => {
@@ -26,23 +31,16 @@ const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     const fetchUser = async () => {
-      if (!token) {
-        console.log('No token in context')
-        return
-      }
+      if (!token) return
 
       try {
         const decoded: DecodedToken = jwtDecode(token)
-        console.log('Decoded token:', decoded)
-
         const res = await fetch(`http://localhost:5000/api/employees/${decoded.empId}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         })
-
         const data = await res.json()
-        console.log('User data:', data)
         setUser(data)
       } catch (err) {
         console.error('Failed to fetch user info', err)
@@ -93,16 +91,27 @@ const DashboardPage: React.FC = () => {
         <h2 className="text-xl font-semibold">Dashboard</h2>
 
         <div className="grid grid-cols-3 gap-4">
-          <StatBox title="7" subtitle="Vacation days" />
-          <StatBox title="10" subtitle="Sick days" />
-          <StatBox title="151" subtitle="Business hours" />
+          <StatBox title={user?.vacationDays?.toString() ?? '...'} subtitle="Vacation days" />
+          <StatBox title={user?.sickDays?.toString() ?? '...'} subtitle="Sick days" />
+          <StatBox title={user?.workHours?.toString() ?? '...'} subtitle="Business hours" />
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
-          <PiePlaceholder label="Used 70%" />
-          <PiePlaceholder label="Used 40%" />
-          <PiePlaceholder label="Cumulative hours 90%" />
-        </div>
+      <div className="grid grid-cols-3 gap-4 align-items-center justify-items-center mt-6">
+  <PieChart
+    value={parseFloat(((18 - (user?.vacationDays || 0)) / 18 * 100).toFixed(0))}
+    label="Vacation used"
+  />
+  <PieChart
+    value={parseFloat(((30 - (user?.sickDays || 0)) / 30 * 100).toFixed(0))}
+    label="Sick used"
+  />
+  <PieChart
+    value={parseFloat(((user?.workHours || 0) / 160 * 100).toFixed(0))}
+    label="Worked"
+  />
+</div>
+
+
       </div>
     </div>
   )
@@ -117,9 +126,18 @@ const StatBox = ({ title, subtitle }: { title: string; subtitle: string }) => (
   </div>
 )
 
-const PiePlaceholder = ({ label }: { label: string }) => (
-  <div className="flex flex-col items-center justify-center">
-    <div className="w-20 h-20 rounded-full bg-gradient-to-r from-blue-400 to-blue-600 opacity-30" />
-    <p className="text-xs mt-2 text-gray-600">{label}</p>
+const PieChart = ({ value, label }: { value: number; label: string }) => (
+  <div className="flex flex-col items-center justify-center w-24 h-24">
+    <CircularProgressbar
+      value={value}
+      text={`${value}%`}
+      styles={buildStyles({
+        pathColor: '#3b82f6', // כחול
+        textColor: '#1e3a8a',
+        trailColor: '#e0e7ff',
+        textSize: '28px',
+      })}
+    />
+    <p className="text-xs mt-2 text-center text-gray-600">{label}</p>
   </div>
 )

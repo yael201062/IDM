@@ -5,17 +5,20 @@ import ManagerLayout from './ManagerLayout'
 import HRLayout from './HRLayout'
 import ITLayout from './ITLayout'
 
-const LayoutSelector: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
-  const { role } = useUser()
 
-  const Layout = {
+const LayoutSelector: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
+  const { user } = useUser()
+
+  if (!user) return <>{children}</> // או אפשרי: <div>Loading...</div>
+
+  const LayoutComponent = {
     worker: WorkerLayout,
     manager: ManagerLayout,
     hr: HRLayout,
     it: ITLayout,
-  }[role] || WorkerLayout
+  }[user.role] || WorkerLayout
 
-  return <Layout>{children}</Layout>
+  return <LayoutComponent>{children}</LayoutComponent>
 }
 
 export default LayoutSelector
