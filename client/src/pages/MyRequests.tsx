@@ -1,52 +1,112 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
+import { useUser } from '../context/UserContext'
+import {
+  PencilSquareIcon,
+  PlusCircleIcon,
+} from '@heroicons/react/24/outline'
 
-const user = {
-  name: 'Justin',
-  lastName: 'Biber',
-  id: '123456789',
-  department: 'technology',
-  role: 'full stack developer',
-  status: 'Activated',
+interface Request {
+  _id?: string
+  date?: string
+  title: string
+  description: string
+  type: string
+  status: 'pending' | 'approved' | 'rejected' | 'manager-approved' | 'it-approved'
+  createdAt?: string
 }
 
-const requests = [
-  { date: '1/1/2025', type: 'Access to CRM system', status: 'approved' },
-  { date: '13/9/2024', type: 'Access to a network folder', status: 'pending' },
-  { date: '9/9/2024', type: 'Access to VPN connection', status: 'approved' },
-  { date: '2/7/2024', type: 'Access to ERP system', status: 'approved' },
-  { date: '1/5/2024', type: 'Access to a network folder', status: 'rejected' },
-  { date: '5/4/2024', type: 'Access to a network folder', status: 'approved' },
-]
-
 const MyRequests: React.FC = () => {
+  const { user } = useUser()
+  const [requests, setRequests] = useState<Request[]>([])
+  const [showModal, setShowModal] = useState(false)
+  const [newRequest, setNewRequest] = useState({
+    title: '',
+    description: '',
+    type: '',
+  })
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const fetchRequests = async () => {
+      try {
+        const res = await fetch(`http://localhost:5000/api/requests/mine`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
+        })
+        const data = await res.json()
+        setRequests(data)
+      } catch (err) {
+        console.error('Error loading requests:', err)
+      }
+    }
+
+    fetchRequests()
+  }, [])
+
+  const handleSubmitRequest = async () => {
+    setError('')
+
+    if (!newRequest.title || !newRequest.description || !newRequest.type) {
+      setError('Please fill in all fields.')
+      return
+    }
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/requests`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify(newRequest),
+      })
+
+      if (!res.ok) throw new Error('Failed to submit')
+
+      const created = await res.json()
+      setRequests((prev) => [...prev, created])
+      setShowModal(false)
+      setNewRequest({ title: '', description: '', type: '' })
+    } catch (err) {
+      console.error('Error submitting request:', err)
+      setError('An error occurred while submitting the request.')
+    }
+  }
+
+  if (!user) return <div className="p-6">Loading...</div>
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
       {/* Info Card */}
-      <div className="bg-white p-6 rounded-lg shadow-md space-y-4">
-        <h2 className="text-lg font-semibold mb-2">My Information</h2>
-
-        <div className="bg-blue-500 text-white p-4 rounded-lg text-center">
-          <p className="text-2xl font-bold">{user.name}</p>
-          <p className="text-2xl font-bold">{user.lastName}</p>
-          <p className="text-sm mt-2">{user.id}</p>
+      <div className="bg-white shadow rounded-lg p-6">
+        <h2 className="text-lg font-semibold mb-4">My Information</h2>
+        <div className="bg-blue-500 text-white text-xl rounded-xl p-4 mb-4">
+          <p className="font-bold">{user.firstName}-{user.lastName}</p>
+          <p className="text-sm">{user.id}</p>
         </div>
-
-        <div className="bg-gray-100 rounded-lg p-4 space-y-2 text-sm">
-          <div>
-            <span className="font-medium text-gray-500">position</span>
-            <div className="mt-1 inline-block bg-blue-100 text-blue-600 px-2 py-1 rounded-full text-xs">
+        <div className="text-sm mb-4">
+          <p className="text-gray-700">Position</p>
+          <div className="flex flex-col gap-1 mt-2">
+            <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs w-fit">
+              {user.role}
+            </span>
+            <span className="font-bold text-blue-600 text-sm">
               {user.department}
-            </div>
-            <div className="text-lg font-semibold mt-1">{user.role}</div>
-            <div className="text-green-600 text-sm">{user.status}</div>
+            </span>
           </div>
+          <p className="text-blue-500 mt-2 text-xs">{user.status}</p>
         </div>
-
-        <div className="flex gap-2 pt-2">
-          <button className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition w-full">
+        <div className="flex gap-2">
+          <button className="bg-blue-500 text-white rounded-lg px-4 py-2 text-sm flex items-center gap-2 w-full">
+            <PencilSquareIcon className="h-5 w-5" />
             update info
           </button>
-          <button className="bg-blue-100 text-blue-600 px-4 py-2 rounded-md hover:bg-blue-200 transition w-full">
+          <button
+            onClick={() => setShowModal(true)}
+            className="bg-blue-500 text-white rounded-lg px-4 py-2 text-sm flex items-center gap-2 w-full"
+          >
+            <PlusCircleIcon className="h-5 w-5" />
             new request
           </button>
         </div>
@@ -56,7 +116,10 @@ const MyRequests: React.FC = () => {
       <div className="bg-white p-6 rounded-lg shadow-md">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold">My Requests</h2>
-          <button className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition text-sm">
+          <button
+            onClick={() => setShowModal(true)}
+            className="bg-blue-500 text-white px-4 py-2 rounded-md text-sm"
+          >
             + new request
           </button>
         </div>
@@ -65,28 +128,34 @@ const MyRequests: React.FC = () => {
           <table className="min-w-full text-sm text-left text-gray-700">
             <thead className="bg-gray-100 text-gray-500 uppercase text-xs">
               <tr>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Request type</th>
+                <th className="px-4 py-3">Title</th>
+                <th className="px-4 py-3">Type</th>
                 <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Date</th>
               </tr>
             </thead>
             <tbody>
               {requests.map((r, i) => (
                 <tr key={i} className="border-b hover:bg-gray-50">
-                  <td className="px-4 py-3">{r.date}</td>
+                  <td className="px-4 py-3">{r.title}</td>
                   <td className="px-4 py-3">{r.type}</td>
                   <td className="px-4 py-3">
                     <span
                       className={`capitalize font-medium ${
-                        r.status === 'approved'
+                        r.status === 'it-approved'
                           ? 'text-green-600'
                           : r.status === 'pending'
                           ? 'text-yellow-500'
+                          : r.status === 'manager-approved'
+                          ? 'text-blue-500'
                           : 'text-red-500'
                       }`}
                     >
                       {r.status}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ''}
                   </td>
                 </tr>
               ))}
@@ -94,6 +163,63 @@ const MyRequests: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">New Request</h3>
+
+            {error && (
+              <div className="bg-red-100 text-red-600 text-sm px-3 py-2 rounded mb-3">
+                {error}
+              </div>
+            )}
+
+            <input
+              type="text"
+              placeholder="Request Title"
+              value={newRequest.title}
+              onChange={(e) => setNewRequest({ ...newRequest, title: e.target.value })}
+              className="w-full border p-2 rounded mb-3"
+            />
+
+            <select
+              value={newRequest.type}
+              onChange={(e) => setNewRequest({ ...newRequest, type: e.target.value })}
+              className="w-full border p-2 rounded mb-3"
+            >
+              <option value="">Select Type</option>
+              <option value="Access to CRM">Access to CRM</option>
+              <option value="Access to a network folder">Access to a network folder</option>
+              <option value="Access to VPN connection">Access to VPN connection</option>
+            </select>
+
+            <textarea
+              placeholder="Request Description"
+              value={newRequest.description}
+              onChange={(e) => setNewRequest({ ...newRequest, description: e.target.value })}
+              className="w-full border p-2 rounded mb-4"
+              rows={3}
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitRequest}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

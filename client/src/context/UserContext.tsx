@@ -5,9 +5,21 @@ import { jwtDecode } from 'jwt-decode'
 export type UserRole = 'worker' | 'manager' | 'hr' | 'it'
 
 interface User {
-  name: string
-  role: UserRole
+  systemRole: UserRole
+  name: string 
+  firstName: string
+  lastName: string
+  role: string 
   email: string
+  department: string
+  status: string
+  id: string
+}
+
+interface JwtPayload {
+  empId: string
+  exp: number
+  iat: number
 }
 
 interface UserContextType {
@@ -40,12 +52,22 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
   const loadUserFromToken = async (t: string) => {
     try {
-      const decoded: any = jwtDecode(t)
+      const decoded = jwtDecode<JwtPayload>(t)
       const res = await fetch(`http://localhost:5000/api/employees/${decoded.empId}`, {
         headers: { Authorization: `Bearer ${t}` },
       })
       const data = await res.json()
-      setUser({ name: data.name, role: data.role, email: data.email })
+      setUser({
+        systemRole: data.systemRole,
+        name: data.name,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        role: data.role,
+        email: data.email,
+        department: data.department,
+        status: data.status,
+        id: data.id,
+      })
     } catch (err) {
       console.error('Failed to load user from token:', err)
       logout()
