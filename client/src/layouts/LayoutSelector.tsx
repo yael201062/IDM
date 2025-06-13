@@ -16,7 +16,7 @@ const LayoutSelector: React.FC<{ children?: React.ReactNode }> = ({ children }) 
     manager: ManagerLayout,
     hr: HRLayout,
     it: ITLayout,
-  }[user.role] || WorkerLayout
+  }[user.systemRole] || WorkerLayout
 
   return <LayoutComponent>{children}</LayoutComponent>
 }

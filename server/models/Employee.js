@@ -6,7 +6,7 @@ const employeeSchema = new mongoose.Schema({
   lastName: String,
   id: String,
   role: String,
-  department: String, 
+  department: String,
   status: { type: String, default: 'Activated' },
   phone: String,
   email: String,
@@ -14,11 +14,11 @@ const employeeSchema = new mongoose.Schema({
   end: String,
   birthday: String,
   password: String,
-  systemRole: {
-    type: String,
-    enum: ['worker', 'manager', 'hr', 'it'],
-    default: 'worker',
-  },
+systemRole: {
+  type: String,
+  enum: ['worker', 'manager', 'hr', 'it'],
+  required: true,
+},
 })
 
 module.exports = mongoose.model('Employee', employeeSchema)

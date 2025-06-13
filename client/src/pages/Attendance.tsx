@@ -146,7 +146,6 @@ const Attendance: React.FC = () => {
               <th className="px-4 py-3">End</th>
               <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">Hours</th>
-              <th className="px-4 py-3">Error</th>
             </tr>
           </thead>
           <tbody>

@@ -15,6 +15,7 @@ export interface EmployeeFormData {
   email: string
   start: string
   end: string
+  systemRole: string
 }
 
 const NewEmployeeModal: React.FC<Props> = ({ isOpen, onClose, onSubmit }) => {
@@ -26,9 +27,10 @@ const NewEmployeeModal: React.FC<Props> = ({ isOpen, onClose, onSubmit }) => {
     email: '',
     start: '',
     end: '',
+    systemRole: '',
   })
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
 
@@ -43,13 +45,69 @@ const NewEmployeeModal: React.FC<Props> = ({ isOpen, onClose, onSubmit }) => {
         <Dialog.Panel className="bg-white p-6 rounded-lg shadow-md w-full max-w-md">
           <Dialog.Title className="text-lg font-bold mb-4">Create New Employee</Dialog.Title>
           <div className="grid grid-cols-1 gap-3 text-sm">
-            <input name="name" placeholder="Full name" value={form.name} onChange={handleChange} className="border px-3 py-2 rounded" />
-            <input name="id" placeholder="ID" value={form.id} onChange={handleChange} className="border px-3 py-2 rounded" />
-            <input name="role" placeholder="Role" value={form.role} onChange={handleChange} className="border px-3 py-2 rounded" />
-            <input name="phone" placeholder="Phone" value={form.phone} onChange={handleChange} className="border px-3 py-2 rounded" />
-            <input name="email" placeholder="Email" value={form.email} onChange={handleChange} className="border px-3 py-2 rounded" />
-            <input name="start" placeholder="Start Date" type="date" value={form.start} onChange={handleChange} className="border px-3 py-2 rounded" />
-            <input name="end" placeholder="End Date" type="date" value={form.end} onChange={handleChange} className="border px-3 py-2 rounded" />
+            <input
+              name="name"
+              placeholder="Full name"
+              value={form.name}
+              onChange={handleChange}
+              className="border px-3 py-2 rounded"
+            />
+            <input
+              name="id"
+              placeholder="ID"
+              value={form.id}
+              onChange={handleChange}
+              className="border px-3 py-2 rounded"
+            />
+            <input
+              name="role"
+              placeholder="Role"
+              value={form.role}
+              onChange={handleChange}
+              className="border px-3 py-2 rounded"
+            />
+            <select
+              name="systemRole"
+              value={form.systemRole}
+              onChange={handleChange}
+              className="border px-3 py-2 rounded"
+            >
+              <option value="">Select System Role</option>
+              <option value="worker">Worker</option>
+              <option value="manager">Manager</option>
+              <option value="hr">HR</option>
+              <option value="it">IT</option>
+            </select>
+            <input
+              name="phone"
+              placeholder="Phone"
+              value={form.phone}
+              onChange={handleChange}
+              className="border px-3 py-2 rounded"
+            />
+            <input
+              name="email"
+              placeholder="Email"
+              value={form.email}
+              onChange={handleChange}
+              className="border px-3 py-2 rounded"
+            />
+            <input
+              name="start"
+              placeholder="Start Date"
+              type="date"
+              value={form.start}
+              onChange={handleChange}
+              className="border px-3 py-2 rounded"
+            />
+            <input
+              name="end"
+              placeholder="End Date"
+              type="date"
+              value={form.end}
+              onChange={handleChange}
+              className="border px-3 py-2 rounded"
+            />
           </div>
 
           <div className="mt-4 flex justify-end gap-2">

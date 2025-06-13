@@ -16,6 +16,7 @@ const NewEmployeeForm: React.FC<Props> = ({ onClose, onSubmit }) => {
     start: '',
     end: '',
     birthday: '',
+    systemRole: '',
   })
 
   const [error, setError] = useState<string | null>(null)
@@ -30,11 +31,11 @@ const NewEmployeeForm: React.FC<Props> = ({ onClose, onSubmit }) => {
     setError(null)
 
     // וולידציות בסיסיות
-    if (!form.firstName || !form.lastName || !form.id || !form.email || !form.role || !form.start || !form.birthday) {
+    if (!form.firstName || !form.lastName || !form.id || !form.email || !form.role || !form.start || !form.birthday || !form.systemRole) {
       return setError('All required fields must be filled')
     }
 
-    if (!/^\d{9}$/.test(form.id)) {
+    if (!/^[0-9]{9}$/.test(form.id)) {
       return setError('ID must be 9 digits')
     }
 
@@ -75,98 +76,45 @@ const NewEmployeeForm: React.FC<Props> = ({ onClose, onSubmit }) => {
         {error && <div className="text-red-500 text-sm">{error}</div>}
 
         <div className="grid grid-cols-2 gap-4">
-          <input
-            name="firstName"
-            placeholder="First Name"
-            className="input"
-            value={form.firstName}
-            onChange={handleChange}
-          />
-          <input
-            name="lastName"
-            placeholder="Last Name"
-            className="input"
-            value={form.lastName}
-            onChange={handleChange}
-          />
-          <input
-            name="id"
-            placeholder="ID"
-            className="input"
-            value={form.id}
-            onChange={handleChange}
-          />
-          <input
-            name="role"
-            placeholder="Role"
-            className="input"
-            value={form.role}
-            onChange={handleChange}
-          />
-          <input
-            name="phone"
-            placeholder="Phone"
-            className="input"
-            value={form.phone}
-            onChange={handleChange}
-          />
-          <input
-            name="email"
-            placeholder="Email"
-            type="email"
-            className="input"
-            value={form.email}
-            onChange={handleChange}
-          />
+          <input name="firstName" placeholder="First Name" className="input" value={form.firstName} onChange={handleChange} />
+          <input name="lastName" placeholder="Last Name" className="input" value={form.lastName} onChange={handleChange} />
+          <input name="id" placeholder="ID" className="input" value={form.id} onChange={handleChange} />
+          <input name="role" placeholder="Role" className="input" value={form.role} onChange={handleChange} />
+          <input name="phone" placeholder="Phone" className="input" value={form.phone} onChange={handleChange} />
+          <input name="email" placeholder="Email" type="email" className="input" value={form.email} onChange={handleChange} />
+
           <div className="col-span-2 grid grid-cols-2 gap-4">
-  <div>
-    <label className="block text-sm text-gray-600 mb-1">Start Date</label>
-    <input
-      name="start"
-      type="date"
-      className="input"
-      value={form.start}
-      onChange={handleChange}
-    />
-  </div>
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Start Date</label>
+              <input name="start" type="date" className="input" value={form.start} onChange={handleChange} />
+            </div>
 
-  <div>
-    <label className="block text-sm text-gray-600 mb-1">End Date</label>
-    <input
-      name="end"
-      type="date"
-      className="input"
-      value={form.end}
-      onChange={handleChange}
-    />
-  </div>
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">End Date</label>
+              <input name="end" type="date" className="input" value={form.end} onChange={handleChange} />
+            </div>
 
-  <div>
-    <label className="block text-sm text-gray-600 mb-1">Birthday</label>
-    <input
-      name="birthday"
-      type="date"
-      className="input"
-      value={form.birthday}
-      onChange={handleChange}
-    />
-  </div>
-</div>
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Birthday</label>
+              <input name="birthday" type="date" className="input" value={form.birthday} onChange={handleChange} />
+            </div>
 
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">System Role</label>
+              <select name="systemRole" className="input" value={form.systemRole} onChange={handleChange}>
+                <option value="">Select role</option>
+                <option value="worker">Worker</option>
+                <option value="manager">Manager</option>
+                <option value="hr">HR</option>
+                <option value="it">IT</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         <div className="flex justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-500 hover:underline"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="px-4 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-500 hover:underline">Cancel</button>
+          <button onClick={handleSubmit} disabled={loading} className="px-4 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600">
             {loading ? 'Creating...' : 'Create'}
           </button>
         </div>

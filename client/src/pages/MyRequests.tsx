@@ -8,7 +8,6 @@ import {
 interface Request {
   _id?: string
   date?: string
-  title: string
   description: string
   type: string
   status: 'pending' | 'approved' | 'rejected' | 'manager-approved' | 'it-approved'
@@ -20,7 +19,6 @@ const MyRequests: React.FC = () => {
   const [requests, setRequests] = useState<Request[]>([])
   const [showModal, setShowModal] = useState(false)
   const [newRequest, setNewRequest] = useState({
-    title: '',
     description: '',
     type: '',
   })
@@ -47,7 +45,7 @@ const MyRequests: React.FC = () => {
   const handleSubmitRequest = async () => {
     setError('')
 
-    if (!newRequest.title || !newRequest.description || !newRequest.type) {
+    if (!newRequest.description || !newRequest.type) {
       setError('Please fill in all fields.')
       return
     }
@@ -67,7 +65,7 @@ const MyRequests: React.FC = () => {
       const created = await res.json()
       setRequests((prev) => [...prev, created])
       setShowModal(false)
-      setNewRequest({ title: '', description: '', type: '' })
+      setNewRequest({ description: '', type: '' })
     } catch (err) {
       console.error('Error submitting request:', err)
       setError('An error occurred while submitting the request.')
@@ -128,7 +126,6 @@ const MyRequests: React.FC = () => {
           <table className="min-w-full text-sm text-left text-gray-700">
             <thead className="bg-gray-100 text-gray-500 uppercase text-xs">
               <tr>
-                <th className="px-4 py-3">Title</th>
                 <th className="px-4 py-3">Type</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Date</th>
@@ -137,7 +134,6 @@ const MyRequests: React.FC = () => {
             <tbody>
               {requests.map((r, i) => (
                 <tr key={i} className="border-b hover:bg-gray-50">
-                  <td className="px-4 py-3">{r.title}</td>
                   <td className="px-4 py-3">{r.type}</td>
                   <td className="px-4 py-3">
                     <span
@@ -175,14 +171,6 @@ const MyRequests: React.FC = () => {
                 {error}
               </div>
             )}
-
-            <input
-              type="text"
-              placeholder="Request Title"
-              value={newRequest.title}
-              onChange={(e) => setNewRequest({ ...newRequest, title: e.target.value })}
-              className="w-full border p-2 rounded mb-3"
-            />
 
             <select
               value={newRequest.type}
