@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Search } from 'lucide-react'
+import { Search, Pencil, Trash2 } from 'lucide-react'
 import NewEmployeeForm from './NewEmployeeForm'
 
 export type Employee = {
@@ -10,12 +10,14 @@ export type Employee = {
   email: string
   start: string
   end: string
+  systemRole: 'worker' | 'manager' | 'hr' | 'it'
 }
 
 const EmployeeTable: React.FC = () => {
   const [search, setSearch] = useState('')
   const [employees, setEmployees] = useState<Employee[]>([])
   const [showForm, setShowForm] = useState(false)
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null)
   const [loading, setLoading] = useState(true)
 
   const fetchEmployees = async () => {
@@ -41,6 +43,25 @@ const EmployeeTable: React.FC = () => {
 
   const handleAddEmployee = async () => {
     await fetchEmployees()
+    setEditingEmployee(null)
+  }
+
+  const handleEdit = (emp: Employee) => {
+    setEditingEmployee(emp)
+    setShowForm(true)
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this employee?')) return
+    try {
+      const res = await fetch(`http://localhost:5000/api/employees/${id}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) throw new Error('Delete failed')
+      fetchEmployees()
+    } catch (err) {
+      console.error('Failed to delete:', err)
+    }
   }
 
   return (
@@ -48,7 +69,10 @@ const EmployeeTable: React.FC = () => {
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">Employee Management</h2>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => {
+            setEditingEmployee(null)
+            setShowForm(true)
+          }}
           className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition text-sm flex items-center gap-2"
         >
           <span>New Employee</span>
@@ -80,10 +104,12 @@ const EmployeeTable: React.FC = () => {
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">ID</th>
                 <th className="px-4 py-3">Role</th>
+                <th className="px-4 py-3">System Role</th>
                 <th className="px-4 py-3">Phone</th>
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Start</th>
                 <th className="px-4 py-3">End</th>
+                <th className="px-4 py-3 text-center">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -92,10 +118,27 @@ const EmployeeTable: React.FC = () => {
                   <td className="px-4 py-3">{emp.name}</td>
                   <td className="px-4 py-3">{emp.id}</td>
                   <td className="px-4 py-3">{emp.role}</td>
+                  <td className="px-4 py-3">{emp.systemRole}</td>
                   <td className="px-4 py-3">{emp.phone}</td>
                   <td className="px-4 py-3">{emp.email}</td>
                   <td className="px-4 py-3">{emp.start}</td>
                   <td className="px-4 py-3">{emp.end || '-'}</td>
+                  <td className="px-4 py-3 text-center flex gap-2">
+                    <button
+                      onClick={() => handleEdit(emp)}
+                      className="text-blue-500 hover:text-blue-700"
+                      title="Edit"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(emp.id)}
+                      className="text-red-500 hover:text-red-700"
+                      title="Delete"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -107,6 +150,7 @@ const EmployeeTable: React.FC = () => {
         <NewEmployeeForm
           onClose={() => setShowForm(false)}
           onSubmit={handleAddEmployee}
+          editingEmployee={editingEmployee}
         />
       )}
     </div>
