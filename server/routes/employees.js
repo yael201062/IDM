@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs')
 const { exec } = require('child_process')
 require('dotenv').config()
 
+// ▶ יצירת עובד חדש
 router.post('/', async (req, res) => {
   try {
     const {
@@ -18,6 +19,7 @@ router.post('/', async (req, res) => {
       end,
       birthday,
       systemRole,
+      department,
     } = req.body
 
     console.log('📥 יצירת עובד חדש עם הנתונים:', req.body)
@@ -42,12 +44,14 @@ router.post('/', async (req, res) => {
       start,
       end,
       birthday,
+      department,
       password: hashedPassword,
       systemRole,
     })
 
     await employee.save()
 
+    // PowerShell command to create AD user
     const adUser = process.env.AD_USERNAME
     const adPass = process.env.AD_PASSWORD
     const psCommand = [
@@ -78,6 +82,46 @@ router.post('/', async (req, res) => {
   } catch (err) {
     console.error('Server error:', err)
     res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+//get all employeesMore actions
+router.get('/', async (req, res) => {
+  try {
+    const employees = await Employee.find()
+    res.json(employees)
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch employees' })
+  }
+})
+
+// Get employee by personal ID (תעודת זהות)
+router.get('/:id', async (req, res) => {
+  try {
+    const employee = await Employee.findOne({ id: req.params.id }) // ← תיקון חשוב
+    if (!employee) return res.status(404).json({ error: 'Employee not found' })
+    res.json(employee)
+  } catch (err) {
+    console.error('Error fetching employee:', err)
+    res.status(500).json({ error: 'Failed to fetch employee' })
+  }
+})
+
+
+// Update employee by ID
+router.put('/:id', async (req, res) => {
+  try {
+    const { name, id, role, phone, email, start, end } = req.body
+    const updatedEmployee = await Employee.findByIdAndUpdate(
+      req.params.id,
+      { name, id, role, phone, email, start, end },
+      { new: true }
+    )
+    if (!updatedEmployee) return res.status(404).json({ error: 'Employee not found' })
+    res.json(updatedEmployee)
+  } catch (err) {
+    console.error('❌ Update error:', err)
+    res.status(500).json({ error: 'Failed to update employee' })
   }
 })
 

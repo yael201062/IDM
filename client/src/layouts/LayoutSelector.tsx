@@ -4,12 +4,12 @@ import WorkerLayout from './WorkerLayout'
 import ManagerLayout from './ManagerLayout'
 import HRLayout from './HRLayout'
 import ITLayout from './ITLayout'
+import { Outlet } from 'react-router-dom'
 
-
-const LayoutSelector: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
+const LayoutSelector: React.FC = () => {
   const { user } = useUser()
 
-  if (!user) return <>{children}</> // או אפשרי: <div>Loading...</div>
+  if (!user) return <div>Loading...</div>
 
   const LayoutComponent = {
     worker: WorkerLayout,
@@ -18,7 +18,11 @@ const LayoutSelector: React.FC<{ children?: React.ReactNode }> = ({ children }) 
     it: ITLayout,
   }[user.systemRole] || WorkerLayout
 
-  return <LayoutComponent>{children}</LayoutComponent>
+  return (
+    <LayoutComponent>
+      <Outlet />
+    </LayoutComponent>
+  )
 }
 
 export default LayoutSelector
