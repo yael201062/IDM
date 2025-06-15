@@ -20,6 +20,7 @@ router.post('/', async (req, res) => {
       birthday,
       systemRole,
       department,
+      managerId, // 🆕
     } = req.body
 
     console.log('📥 יצירת עובד חדש עם הנתונים:', req.body)
@@ -47,6 +48,7 @@ router.post('/', async (req, res) => {
       department,
       password: hashedPassword,
       systemRole,
+      managerId, // 🆕
     })
 
     await employee.save()
@@ -71,10 +73,41 @@ router.post('/', async (req, res) => {
       `-Credential $cred`,
     ].join(' ')
 
-    exec(`powershell.exe -Command "${psCommand}"`, (err, stdout, stderr) => {
+    exec(`powershell.exe -Command "${psCommand}"`, async (err, stdout, stderr) => {
       if (err || stderr.toLowerCase().includes('error')) {
         console.error('AD Error:', stderr)
         return res.status(500).json({ error: 'Employee created, but AD failed' })
+      }
+
+      console.log(`✅ User ${id} created in AD`)
+
+      // 💡 אם יש מנהל – נעדכן אותו גם ב-AD
+      if (managerId) {
+        try {
+          const manager = await Employee.findOne({ id: managerId })
+          if (manager) {
+            const dnManager = `CN=${manager.name},CN=Users,DC=IDM,DC=local`
+
+            const setManagerCmd = [
+              `$password = ConvertTo-SecureString '${adPass}' -AsPlainText -Force;`,
+              `$cred = New-Object System.Management.Automation.PSCredential('${adUser}', $password);`,
+              `Start-Sleep -Seconds 2;`,
+              `Set-ADUser -Identity '${id}' -Manager '${dnManager}' -Credential $cred`,
+            ].join(' ')
+
+            console.log('🔁 Running Set-ADUser with:', setManagerCmd)
+
+            exec(`powershell.exe -Command "${setManagerCmd}"`, (err2, stdout2, stderr2) => {
+              if (err2 || stderr2.toLowerCase().includes('error')) {
+                console.error('❌ Failed to set manager in AD:', stderr2)
+              } else {
+                console.log(`✅ Manager set in AD for user ${id}`)
+              }
+            })
+          }
+        } catch (e) {
+          console.error('❌ Failed to fetch manager for AD:', e)
+        }
       }
 
       return res.status(201).json({ message: 'Employee created successfully' })
@@ -85,7 +118,7 @@ router.post('/', async (req, res) => {
   }
 })
 
-//get all employeesMore actions
+// get all employees
 router.get('/', async (req, res) => {
   try {
     const employees = await Employee.find()
@@ -98,7 +131,7 @@ router.get('/', async (req, res) => {
 // Get employee by personal ID (תעודת זהות)
 router.get('/:id', async (req, res) => {
   try {
-    const employee = await Employee.findOne({ id: req.params.id }) // ← תיקון חשוב
+    const employee = await Employee.findOne({ id: req.params.id })
     if (!employee) return res.status(404).json({ error: 'Employee not found' })
     res.json(employee)
   } catch (err) {
@@ -107,16 +140,21 @@ router.get('/:id', async (req, res) => {
   }
 })
 
-
 // Update employee by ID
 router.put('/:id', async (req, res) => {
   try {
-    const { name, id, role, phone, email, start, end } = req.body
+    const updates = req.body
+
+    if (updates.firstName && updates.lastName) {
+      updates.name = `${updates.firstName}-${updates.lastName}`
+    }
+
     const updatedEmployee = await Employee.findByIdAndUpdate(
       req.params.id,
-      { name, id, role, phone, email, start, end },
+      updates,
       { new: true }
     )
+
     if (!updatedEmployee) return res.status(404).json({ error: 'Employee not found' })
     res.json(updatedEmployee)
   } catch (err) {

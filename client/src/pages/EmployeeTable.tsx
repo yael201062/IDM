@@ -3,6 +3,7 @@ import { Search, Pencil, Trash2 } from 'lucide-react'
 import NewEmployeeForm from './NewEmployeeForm'
 
 export type Employee = {
+  _id: string
   name: string
   id: string
   role: string
@@ -11,6 +12,7 @@ export type Employee = {
   start: string
   end: string
   systemRole: 'worker' | 'manager' | 'hr' | 'it'
+  managerId?: string // ✅ הוספת מזהה מנהל
 }
 
 const EmployeeTable: React.FC = () => {
@@ -38,7 +40,7 @@ const EmployeeTable: React.FC = () => {
   }, [])
 
   const filtered = employees.filter((emp) =>
-    emp.name.toLowerCase().includes(search.toLowerCase())
+    (emp.name || '').toLowerCase().includes(search.toLowerCase())
   )
 
   const handleAddEmployee = async () => {
@@ -51,17 +53,24 @@ const EmployeeTable: React.FC = () => {
     setShowForm(true)
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (_id: string) => {
     if (!window.confirm('Are you sure you want to delete this employee?')) return
     try {
-      const res = await fetch(`http://localhost:5000/api/employees/${id}`, {
+      const res = await fetch(`http://localhost:5000/api/employees/${_id}`, {
         method: 'DELETE',
       })
       if (!res.ok) throw new Error('Delete failed')
-      fetchEmployees()
+      setEmployees((prev) => prev.filter((emp) => emp._id !== _id))
     } catch (err) {
       console.error('Failed to delete:', err)
     }
+  }
+
+  // ✅ פונקציה למציאת שם המנהל לפי ת"ז
+  const getManagerName = (managerId?: string): string => {
+    if (!managerId) return '-'
+    const manager = employees.find((e) => e.id === managerId)
+    return manager ? manager.name : 'Not found'
   }
 
   return (
@@ -105,6 +114,7 @@ const EmployeeTable: React.FC = () => {
                 <th className="px-4 py-3">ID</th>
                 <th className="px-4 py-3">Role</th>
                 <th className="px-4 py-3">System Role</th>
+                <th className="px-4 py-3">Manager</th> {/* ✅ עמודת מנהל */}
                 <th className="px-4 py-3">Phone</th>
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Start</th>
@@ -119,6 +129,7 @@ const EmployeeTable: React.FC = () => {
                   <td className="px-4 py-3">{emp.id}</td>
                   <td className="px-4 py-3">{emp.role}</td>
                   <td className="px-4 py-3">{emp.systemRole}</td>
+                  <td className="px-4 py-3">{getManagerName(emp.managerId)}</td> {/* ✅ הצגת המנהל */}
                   <td className="px-4 py-3">{emp.phone}</td>
                   <td className="px-4 py-3">{emp.email}</td>
                   <td className="px-4 py-3">{emp.start}</td>
@@ -132,7 +143,7 @@ const EmployeeTable: React.FC = () => {
                       <Pencil size={16} />
                     </button>
                     <button
-                      onClick={() => handleDelete(emp.id)}
+                      onClick={() => handleDelete(emp._id)}
                       className="text-red-500 hover:text-red-700"
                       title="Delete"
                     >

@@ -5,6 +5,10 @@ const requestSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  managerId: {
+  type: String,
+  required: false,
+},
   type: {
     type: String,
     required: true,

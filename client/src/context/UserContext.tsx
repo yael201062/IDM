@@ -14,6 +14,7 @@ interface User {
   department: string
   status: string
   id: string
+  empId: string,
 }
 
 interface JwtPayload {
@@ -67,6 +68,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         department: data.department,
         status: data.status,
         id: data.id,
+        empId: decoded.empId,
       })
     } catch (err) {
       console.error('Failed to load user from token:', err)

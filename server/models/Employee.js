@@ -19,6 +19,10 @@ systemRole: {
   enum: ['worker', 'manager', 'hr', 'it'],
   required: true,
 },
+  managerId: {
+    type: String,
+    default: null,
+  },
 })
 
 module.exports = mongoose.model('Employee', employeeSchema)

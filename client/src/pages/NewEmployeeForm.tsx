@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 
 interface Props {
   onClose: () => void
-  onSubmit: () => void
+  onSubmit: (employee: any) => void
   editingEmployee?: any
 }
 
@@ -18,8 +18,10 @@ const NewEmployeeForm: React.FC<Props> = ({ onClose, onSubmit, editingEmployee }
     end: '',
     birthday: '',
     systemRole: '',
+    managerId: '', // ← חדש
   })
 
+  const [employees, setEmployees] = useState<any[]>([]) // ← חדש
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -30,9 +32,26 @@ const NewEmployeeForm: React.FC<Props> = ({ onClose, onSubmit, editingEmployee }
         ...editingEmployee,
         firstName,
         lastName,
+        managerId: editingEmployee.managerId || '',
       })
     }
   }, [editingEmployee])
+
+  // ← חדש: טעינת כל העובדים כדי לאפשר בחירת מנהל
+useEffect(() => {
+  const fetchEmployees = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/employees')
+      const data = await res.json()
+      setEmployees(data.filter((emp: any) => emp.systemRole === 'manager')) // ← רק מנהלים
+    } catch (err) {
+      console.error('Failed to load employees:', err)
+    }
+  }
+
+  fetchEmployees()
+}, [])
+
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -65,7 +84,7 @@ const NewEmployeeForm: React.FC<Props> = ({ onClose, onSubmit, editingEmployee }
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(form), // כולל גם managerId
       })
 
       const data = await res.json()
@@ -74,7 +93,7 @@ const NewEmployeeForm: React.FC<Props> = ({ onClose, onSubmit, editingEmployee }
         return setError(data.error || 'Failed to save employee')
       }
 
-      onSubmit()
+      onSubmit(data)
       onClose()
     } catch (err) {
       console.error(err)
@@ -125,6 +144,24 @@ const NewEmployeeForm: React.FC<Props> = ({ onClose, onSubmit, editingEmployee }
                 <option value="it">IT</option>
               </select>
             </div>
+          </div>
+
+          {/* 🆕 שדה מנהל ישיר */}
+          <div className="col-span-2">
+            <label className="block text-sm text-gray-600 mb-1">Direct Manager</label>
+            <select
+              name="managerId"
+              className="input"
+              value={form.managerId}
+              onChange={handleChange}
+            >
+              <option value="">Select manager</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.firstName} {emp.lastName} ({emp.id})
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
