@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const auth = require('../middleware/auth')
 const Request = require('../models/Request')
+const Employee = require('../models/Employee')
 
 // יצירת בקשה חדשה
 router.post('/', auth, async (req, res) => {
@@ -11,17 +12,17 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ error: 'Missing fields' })
     }
 
-const employee = await Employee.findOne({ id: req.user.empId })
-if (!employee) {
-  return res.status(404).json({ error: 'Employee not found' })
-}
+    const employee = await Employee.findOne({ id: req.user.empId })
+    if (!employee) {
+      return res.status(404).json({ error: 'Employee not found' })
+    }
 
-const request = new Request({
-  employeeId: req.user.empId,
-  type,
-  description,
-  managerId: employee.managerId,
-})
+    const request = new Request({
+      employeeId: req.user.empId,
+      type,
+      description,
+      managerId: employee.managerId, // ת"ז של המנהל
+    })
 
     const saved = await request.save()
     res.status(201).json(saved)
@@ -31,6 +32,7 @@ const request = new Request({
   }
 })
 
+// קבלת כל הבקשות של העובד הנוכחי
 router.get('/mine', auth, async (req, res) => {
   try {
     const requests = await Request.find({ employeeId: req.user.empId }).sort({ createdAt: -1 })
@@ -40,16 +42,33 @@ router.get('/mine', auth, async (req, res) => {
     res.status(500).json({ error: 'Server error' })
   }
 })
+
+// קבלת בקשות ממתינות לפי ת"ז של המנהל
 router.get('/for-manager', auth, async (req, res) => {
   try {
-    const managerId = req.user.empId
-    const requests = await Request.find({ managerId, status: 'pending' }).sort({ createdAt: -1 })
+    const manager = await Employee.findOne({ id: req.user.empId })
+    if (!manager) {
+      return res.status(404).json({ error: 'Manager not found' })
+    }
+
+    console.log('📌 מחפש בקשות עם managerId =', manager.id)
+
+    const requests = await Request.find({
+      managerId: manager.id,
+      status: 'pending',
+    }).sort({ createdAt: -1 })
+
+    console.log('🔍 נמצא', requests.length, 'בקשות')
+
     res.json(requests)
   } catch (err) {
     console.error('GET /for-manager error:', err)
     res.status(500).json({ error: 'Server error' })
   }
 })
+
+
+// עדכון סטטוס של בקשה (אישור / דחייה)
 router.put('/:id/status', auth, async (req, res) => {
   const { status } = req.body
   if (!['approved', 'rejected'].includes(status)) {
@@ -60,8 +79,8 @@ router.put('/:id/status', auth, async (req, res) => {
     const request = await Request.findById(req.params.id)
     if (!request) return res.status(404).json({ error: 'Request not found' })
 
-    // בדיקה שהמשתמש המחובר הוא המנהל של הבקשה
-    if (request.managerId !== req.user.empId) {
+    const manager = await Employee.findOne({ id: req.user.empId })
+    if (!manager || request.managerId !== manager.id) {
       return res.status(403).json({ error: 'Not authorized to update this request' })
     }
 
@@ -74,6 +93,5 @@ router.put('/:id/status', auth, async (req, res) => {
     res.status(500).json({ error: 'Failed to update request' })
   }
 })
-
 
 module.exports = router

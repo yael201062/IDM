@@ -137,18 +137,21 @@ const MyRequests: React.FC = () => {
                   <td className="px-4 py-3">{r.type}</td>
                   <td className="px-4 py-3">
                     <span
-                      className={`capitalize font-medium ${
-                        r.status === 'it-approved'
-                          ? 'text-green-600'
-                          : r.status === 'pending'
-                          ? 'text-yellow-500'
-                          : r.status === 'manager-approved'
-                          ? 'text-blue-500'
-                          : 'text-red-500'
-                      }`}
-                    >
-                      {r.status}
-                    </span>
+  className={`capitalize font-medium ${
+    r.status === 'approved' || r.status === 'it-approved'
+      ? 'text-green-600'
+      : r.status === 'pending'
+      ? 'text-yellow-500'
+      : r.status === 'manager-approved'
+      ? 'text-blue-500'
+      : r.status === 'rejected'
+      ? 'text-red-500'
+      : 'text-gray-500'
+  }`}
+>
+  {r.status}
+</span>
+
                   </td>
                   <td className="px-4 py-3">
                     {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ''}

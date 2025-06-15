@@ -11,6 +11,8 @@ import EmployeeTable from './pages/EmployeeTable'
 import PermissionsPage from './pages/PermissionsPage'
 import RolesPage from './pages/Roles'
 import ChangePassword from './pages/ChangePassword'
+import ManagerNotifications from './pages/ManagerNotifications'
+
 
 const Placeholder = ({ title }: { title: string }) => (
   <div className="p-10 text-2xl">{title}</div>
@@ -30,7 +32,7 @@ const App: React.FC = () => {
         <Route path="/employees" element={<EmployeeTable />} />
         <Route path="/permissions" element={<PermissionsPage />} />
         <Route path="/roles" element={<RolesPage />} />
-        <Route path="/notifications" element={<Placeholder title="Notifications Page" />} />
+        <Route path="/notifications" element={<ManagerNotifications />} />
         <Route path="/call-center" element={<Placeholder title="Call Center Page" />} />
         <Route path="/help" element={<Placeholder title="Help Page" />} />
         <Route path="/logout" element={<Placeholder title="Logged Out" />} />
