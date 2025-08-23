@@ -41,8 +41,6 @@ const ITLayout: React.FC<Props> = ({ children }) => {
           </nav>
         </div>
         <div className="p-4 space-y-3 text-sm border-t border-gray-700">
-          <SidebarItem label="Call Center" icon={PhoneIcon} to="/call-center" />
-          <SidebarItem label="Help" icon={QuestionMarkCircleIcon} to="/help" />
           <SidebarItem label="Log Out" icon={ArrowRightOnRectangleIcon} to="/logout" />
         </div>
       </aside>

@@ -2,37 +2,51 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 const ChangePassword: React.FC = () => {
+  const [email, setEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [message, setMessage] = useState('')
-const navigate = useNavigate()
+  const [message, setMessage] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setMessage(null)
 
+    if (!email) {
+      return setMessage('Email is required')
+    }
     if (newPassword !== confirmPassword) {
       return setMessage('Passwords do not match')
     }
 
+    setLoading(true)
     try {
       const res = await fetch('http://localhost:5000/api/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          // אם נדרש JWT עדיין אפשר להשאיר:
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify({ password: newPassword }),
+        body: JSON.stringify({ email, password: newPassword }),
       })
 
-      const data = await res.json()
-      if (res.ok) {
-        setMessage('Password changed successfully! You can now log in.')
-        navigate('/')
-      } else {
-        setMessage(data.error || 'Failed to change password.')
+      const text = await res.text()
+      let data: any = {}
+      try { data = text ? JSON.parse(text) : {} } catch { data = { error: text } }
+
+      if (!res.ok) {
+        setMessage(data?.error || 'Failed to change password.')
+        return
       }
-    } catch (err) {
-      setMessage('Error: ' + err)
+
+      setMessage('Password changed successfully! Redirecting…')
+      setTimeout(() => navigate('/login'), 1500)
+    } catch (err: any) {
+      setMessage('Error: ' + (err?.message || String(err)))
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -40,6 +54,14 @@ const navigate = useNavigate()
     <div className="flex min-h-screen items-center justify-center bg-gray-100">
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md w-full max-w-md">
         <h2 className="text-xl font-semibold mb-4">Change Password</h2>
+
+        <input
+          type="email"
+          placeholder="Email"
+          className="w-full mb-3 p-2 border rounded"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
 
         <input
           type="password"
@@ -59,9 +81,10 @@ const navigate = useNavigate()
 
         <button
           type="submit"
-          className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
+          disabled={loading}
+          className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 disabled:opacity-60"
         >
-          Update Password
+          {loading ? 'Updating…' : 'Update Password'}
         </button>
 
         {message && <p className="text-center text-sm mt-4 text-red-500">{message}</p>}

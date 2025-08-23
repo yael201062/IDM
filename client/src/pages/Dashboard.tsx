@@ -3,15 +3,18 @@ import { CircularProgressbar, buildStyles } from 'react-circular-progressbar'
 import 'react-circular-progressbar/dist/styles.css'
 import { jwtDecode } from 'jwt-decode'
 import { useUser } from '../context/UserContext'
+import { useNavigate } from 'react-router-dom'
 import {
   PencilSquareIcon,
   PlusCircleIcon,
 } from '@heroicons/react/24/outline'
 
 type DecodedToken = {
-  empId: string
-  email: string
-  exp: number
+  empId?: string
+  employeeId?: string
+  id?: string
+  email?: string
+  exp?: number
 }
 
 type User = {
@@ -20,30 +23,91 @@ type User = {
   role: string
   position?: string
   status?: string
-  vacationDays: number
-  sickDays: number
-  workHours: number
+  vacationDays: number   // כמה נשאר
+  sickDays: number       // כמה נשאר
+  workHours: number      // שעות עבודה בטווח (ברירת מחדל: חודש נוכחי)
 }
+
+type SummaryResponse = {
+  employee: {
+    id: string
+    name?: string
+    email?: string
+    role?: string
+    department?: string
+    status?: string
+    baseVacationDays?: number
+    baseSickDays?: number
+  }
+  kpis: {
+    remainingVacationDays: number
+    remainingSickDays: number
+    workHoursInRange: number
+    overtimeHoursInRange?: number
+    vacationTakenThisYear?: number
+    sickTakenThisYear?: number
+  }
+}
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
 
 const DashboardPage: React.FC = () => {
   const { token } = useUser()
   const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(false)
+    const navigate = useNavigate()   
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchUser = async () => {
       if (!token) return
+      setLoading(true)
+      setError(null)
 
       try {
-        const decoded: DecodedToken = jwtDecode(token)
-        const res = await fetch(`http://localhost:5000/api/employees/${decoded.empId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        const decoded = (jwtDecode(token) || {}) as DecodedToken
+        const empId =
+          decoded.empId ||
+          decoded.employeeId ||
+          decoded.id
+
+        if (!empId) {
+          setError('Cannot resolve employee id from token')
+          setLoading(false)
+          return
+        }
+
+        const res = await fetch(`${API_BASE}/api/employees/${empId}/summary`, {
+          headers: { Authorization: `Bearer ${token}` },
         })
-        const data = await res.json()
-        setUser(data)
-      } catch (err) {
-        console.error('Failed to fetch user info', err)
+
+        if (!res.ok) {
+          const msg = await res.text().catch(() => '')
+          throw new Error(msg || `Request failed with ${res.status}`)
+        }
+
+        const summary: SummaryResponse = await res.json()
+
+        // מיפוי תשובת הסיכום למבנה שה‑UI מצפה לו
+        const mapped: User = {
+          id: summary.employee.id,
+          name:
+            summary.employee.name ||
+            (decoded.email ? decoded.email.split('@')[0] : 'Employee'),
+          role: summary.employee.role || 'worker',
+          position: undefined,
+          status: summary.employee.status || 'Activated',
+          vacationDays: summary.kpis.remainingVacationDays ?? 18,
+          sickDays: summary.kpis.remainingSickDays ?? 30,
+          workHours: summary.kpis.workHoursInRange ?? 0,
+        }
+
+        setUser(mapped)
+      } catch (err: any) {
+        console.error('Failed to fetch user summary', err)
+        setError(err?.message || 'Failed to fetch user summary')
+      } finally {
+        setLoading(false)
       }
     }
 
@@ -57,7 +121,9 @@ const DashboardPage: React.FC = () => {
         <h2 className="text-lg font-semibold mb-4">My Information</h2>
 
         <div className="bg-gradient-to-r from-blue-400 to-blue-600 text-white text-xl rounded-xl p-4 mb-4">
-          <p className="font-bold">{user?.name || '...'}</p>
+          <p className="font-bold">
+            {loading ? 'Loading…' : user?.name || '...'}
+          </p>
           <p className="text-sm">{user?.id || ''}</p>
         </div>
 
@@ -75,15 +141,21 @@ const DashboardPage: React.FC = () => {
         </div>
 
         <div className="flex gap-2">
-          <button className="bg-blue-500 text-white rounded-lg px-4 py-2 text-sm flex items-center gap-2">
+          <button  onClick={() => navigate('/personal-details')} className="bg-blue-500 text-white rounded-lg px-4 py-2 text-sm flex items-center gap-2">
             <PencilSquareIcon className="h-5 w-5" />
             update info
           </button>
-          <button className="bg-blue-500 text-white rounded-lg px-4 py-2 text-sm flex items-center gap-2">
+          <button  onClick={() => navigate('/my-requests')} className="bg-blue-500 text-white rounded-lg px-4 py-2 text-sm flex items-center gap-2">
             <PlusCircleIcon className="h-5 w-5" />
             new request
           </button>
         </div>
+
+        {error && (
+          <div className="mt-4 text-sm text-red-600">
+            {error}
+          </div>
+        )}
       </div>
 
       {/* Dashboard Stats */}
@@ -91,33 +163,40 @@ const DashboardPage: React.FC = () => {
         <h2 className="text-xl font-semibold">Dashboard</h2>
 
         <div className="grid grid-cols-3 gap-4">
-          <StatBox title={user?.vacationDays?.toString() ?? '...'} subtitle="Vacation days" />
-          <StatBox title={user?.sickDays?.toString() ?? '...'} subtitle="Sick days" />
-          <StatBox title={user?.workHours?.toString() ?? '...'} subtitle="Business hours" />
+          <StatBox title={user?.vacationDays?.toString() ?? (loading ? '…' : '0')} subtitle="Vacation days" />
+          <StatBox title={user?.sickDays?.toString() ?? (loading ? '…' : '0')} subtitle="Sick days" />
+          <StatBox title={user?.workHours?.toString() ?? (loading ? '…' : '0')} subtitle="Business hours" />
         </div>
 
-      <div className="grid grid-cols-3 gap-4 align-items-center justify-items-center mt-6">
-  <PieChart
-    value={parseFloat(((18 - (user?.vacationDays || 0)) / 18 * 100).toFixed(0))}
-    label="Vacation used"
-  />
-  <PieChart
-    value={parseFloat(((30 - (user?.sickDays || 0)) / 30 * 100).toFixed(0))}
-    label="Sick used"
-  />
-  <PieChart
-    value={parseFloat(((user?.workHours || 0) / 160 * 100).toFixed(0))}
-    label="Worked"
-  />
-</div>
-
-
+        <div className="grid grid-cols-3 gap-4 align-items-center justify-items-center mt-6">
+          <PieChart
+            value={safePercent(((18 - (user?.vacationDays || 0)) / 18) * 100)}
+            label="Vacation used"
+          />
+          <PieChart
+            value={safePercent(((30 - (user?.sickDays || 0)) / 30) * 100)}
+            label="Sick used"
+          />
+          <PieChart
+            value={safePercent(((user?.workHours || 0) / 160) * 100)}
+            label="Worked"
+          />
+        </div>
       </div>
     </div>
   )
 }
 
 export default DashboardPage
+
+// Helpers & small components
+
+function safePercent(v: number) {
+  if (!isFinite(v) || isNaN(v)) return 0
+  if (v < 0) return 0
+  if (v > 100) return 100
+  return parseFloat(v.toFixed(0))
+}
 
 const StatBox = ({ title, subtitle }: { title: string; subtitle: string }) => (
   <div className="bg-white rounded-lg shadow p-4 text-center">
@@ -132,7 +211,7 @@ const PieChart = ({ value, label }: { value: number; label: string }) => (
       value={value}
       text={`${value}%`}
       styles={buildStyles({
-        pathColor: '#3b82f6', // כחול
+        pathColor: '#3b82f6',
         textColor: '#1e3a8a',
         trailColor: '#e0e7ff',
         textSize: '28px',

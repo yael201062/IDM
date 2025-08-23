@@ -20,15 +20,19 @@ const employeeSchema = new mongoose.Schema({
   end: String,
   birthday: String,
   password: String,
-  systemRole: {
-    type: String,
-    enum: ['worker', 'manager', 'hr', 'it'],
-    required: true,
-  },
+  address: String,
+systemRole: {
+  type: String,
+  enum: ['worker', 'manager', 'hr', 'it'],
+  required: true,
+},
   managerId: {
     type: String,
     default: null,
   },
-})
+   baseVacationDays: { type: Number, default: 18 },
+  baseSickDays:     { type: Number, default: 30 },
+}, { timestamps: true });
+
 
 module.exports = mongoose.model('Employee', employeeSchema)

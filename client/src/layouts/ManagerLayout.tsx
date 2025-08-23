@@ -34,11 +34,10 @@ const ManagerLayout: React.FC<Props> = ({ children }) => {
             <SidebarItem label="My requests" icon={FolderIcon} to="/my-requests" />
             <SidebarItem label="Notifications" icon={BellIcon} to="/notifications" />
             <SidebarItem label="My employees" icon={UsersIcon} to="/my-employees" />
+            <SidebarItem label="AI Dashboard" icon={UsersIcon} to="/manager" />
           </nav>
         </div>
         <div className="p-4 space-y-3 text-sm border-t border-gray-700">
-          <SidebarItem label="Call Center" icon={PhoneIcon} to="/call-center" />
-          <SidebarItem label="Help" icon={QuestionMarkCircleIcon} to="/help" />
           <SidebarItem label="Log Out" icon={ArrowRightOnRectangleIcon} to="/logout" />
         </div>
       </aside>
