@@ -5,7 +5,13 @@ const employeeSchema = new mongoose.Schema({
   firstName: String,
   lastName: String,
   id: String,
+
+  // שם הרול נשאר להצגה / AD
   role: String,
+
+  // 🆕 קישור לרול לצורך ספירת usersCount
+  roleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Role', default: null },
+
   department: String,
   status: { type: String, default: 'Activated' },
   phone: String,
@@ -14,11 +20,11 @@ const employeeSchema = new mongoose.Schema({
   end: String,
   birthday: String,
   password: String,
-systemRole: {
-  type: String,
-  enum: ['worker', 'manager', 'hr', 'it'],
-  required: true,
-},
+  systemRole: {
+    type: String,
+    enum: ['worker', 'manager', 'hr', 'it'],
+    required: true,
+  },
   managerId: {
     type: String,
     default: null,

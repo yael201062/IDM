@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const Employee = require('../models/Employee')
+const Role = require('../models/Role')             // 🆕 לעדכון usersCount
 const bcrypt = require('bcryptjs')
 const { exec } = require('child_process')
 require('dotenv').config()
@@ -12,7 +13,8 @@ router.post('/', async (req, res) => {
       firstName,
       lastName,
       id,
-      role,
+      role,            // שם הרול (לטייטל/תצוגה/AD)
+      roleId,          // 🆕 מזהה רול אמיתי (ObjectId מ-roles)
       phone,
       email,
       start,
@@ -20,7 +22,7 @@ router.post('/', async (req, res) => {
       birthday,
       systemRole,
       department,
-      managerId, // 🆕
+      managerId,
     } = req.body
 
     console.log('📥 יצירת עובד חדש עם הנתונים:', req.body)
@@ -40,6 +42,7 @@ router.post('/', async (req, res) => {
       lastName,
       id,
       role,
+      roleId,          // 🆕 נשמר המפתח הזר
       phone,
       email,
       start,
@@ -48,12 +51,18 @@ router.post('/', async (req, res) => {
       department,
       password: hashedPassword,
       systemRole,
-      managerId, // 🆕
+      managerId,
     })
 
     await employee.save()
 
-    // PowerShell command to create AD user
+    // 🆕 להגדיל מונה ברול שנבחר
+    if (roleId) {
+      await Role.findByIdAndUpdate(roleId, { $inc: { usersCount: 1 } })
+        .catch((e) => console.error('❌ increment usersCount failed:', e.message))
+    }
+
+    // PowerShell command to create AD user (ללא שינוי)
     const adUser = process.env.AD_USERNAME
     const adPass = process.env.AD_PASSWORD
     const psCommand = [
@@ -74,31 +83,26 @@ router.post('/', async (req, res) => {
     ].join(' ')
 
     exec(`powershell.exe -Command "${psCommand}"`, async (err, stdout, stderr) => {
-      if (err || stderr.toLowerCase().includes('error')) {
+      if (err || (stderr && stderr.toLowerCase().includes('error'))) {
         console.error('AD Error:', stderr)
         return res.status(500).json({ error: 'Employee created, but AD failed' })
       }
 
       console.log(`✅ User ${id} created in AD`)
 
-      // 💡 אם יש מנהל – נעדכן אותו גם ב-AD
       if (managerId) {
         try {
           const manager = await Employee.findOne({ id: managerId })
           if (manager) {
             const dnManager = `CN=${manager.name},CN=Users,DC=IDM,DC=local`
-
             const setManagerCmd = [
               `$password = ConvertTo-SecureString '${adPass}' -AsPlainText -Force;`,
               `$cred = New-Object System.Management.Automation.PSCredential('${adUser}', $password);`,
               `Start-Sleep -Seconds 2;`,
               `Set-ADUser -Identity '${id}' -Manager '${dnManager}' -Credential $cred`,
             ].join(' ')
-
-            console.log('🔁 Running Set-ADUser with:', setManagerCmd)
-
             exec(`powershell.exe -Command "${setManagerCmd}"`, (err2, stdout2, stderr2) => {
-              if (err2 || stderr2.toLowerCase().includes('error')) {
+              if (err2 || (stderr2 && stderr2.toLowerCase().includes('error'))) {
                 console.error('❌ Failed to set manager in AD:', stderr2)
               } else {
                 console.log(`✅ Manager set in AD for user ${id}`)
@@ -140,10 +144,14 @@ router.get('/:id', async (req, res) => {
   }
 })
 
-// Update employee by ID
+// Update employee by ID (Mongo _id)
 router.put('/:id', async (req, res) => {
   try {
     const updates = req.body
+
+    // נשלוף את העובד לפני העדכון כדי להשוות roleId
+    const prev = await Employee.findById(req.params.id)
+    if (!prev) return res.status(404).json({ error: 'Employee not found' })
 
     if (updates.firstName && updates.lastName) {
       updates.name = `${updates.firstName}-${updates.lastName}`
@@ -155,7 +163,18 @@ router.put('/:id', async (req, res) => {
       { new: true }
     )
 
-    if (!updatedEmployee) return res.status(404).json({ error: 'Employee not found' })
+    // 🆕 אם roleId הוחלף – לעדכן מונים בין רול ישן לחדש
+    const prevRoleId = String(prev.roleId || '')
+    const nextRoleId = String(updatedEmployee.roleId || '')
+    if (prevRoleId !== nextRoleId) {
+      if (prev.roleId) {
+        await Role.findByIdAndUpdate(prev.roleId, { $inc: { usersCount: -1 } }).catch(() => {})
+      }
+      if (updatedEmployee.roleId) {
+        await Role.findByIdAndUpdate(updatedEmployee.roleId, { $inc: { usersCount: 1 } }).catch(() => {})
+      }
+    }
+
     res.json(updatedEmployee)
   } catch (err) {
     console.error('❌ Update error:', err)
