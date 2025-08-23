@@ -208,26 +208,32 @@ router.post('/', async (req, res) => {
 });
 
 // === כל העובדים ===
-router.get('/',auth, async (req, res) => {
+router.get('/', auth, async (req, res) => {
   try {
-    const user = req.user
-    let filter = {}
+    const rawUser = req.user || {};
+    const sysRole = String(rawUser.systemRole || '').toLowerCase(); // ← נירמול
+    const userId  = rawUser.id;
 
-    if (isManager(user.systemRole)) {
-      filter = { managerId: user.id }
-    } else if (isHRorIT(user.systemRole)) {
-      filter = {} // רואה את כולם
+    console.log('🔐 /api/employees requester:', { userId, sysRole });
+
+    let filter = {};
+    if (sysRole === 'manager') {
+      filter = { managerId: userId };
+    } else if (sysRole === 'hr' || sysRole === 'it') {
+      filter = {}; // רואה את כולם
     } else {
-      filter = { id: user.id } // עובד רגיל – רק את עצמו
+      filter = { id: userId }; // עובד רגיל – רק את עצמו
     }
 
-    const employees = await Employee.find(filter)
-    res.json(employees);
+    const employees = await Employee.find(filter).lean();
+    return res.json(Array.isArray(employees) ? employees : []);
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ error: 'Failed to fetch employees' });
+    console.error('❌ /api/employees error:', err);
+    return res.status(500).json({ error: 'Failed to fetch employees' });
   }
 });
+
+
 
 // === עובד לפי ת״ז (id האישי) ===
 router.get('/:id', async (req, res) => {

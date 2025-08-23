@@ -5,7 +5,7 @@ const OpenAI = require('openai') // npm i openai@latest
 const Employee = require('../models/Employee')
 const AttendanceRecord = require('../models/AttendanceRecord')
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY})
+const client = new OpenAI({ apiKey: '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'})
 
 // --- קאשינג בזיכרון כדי לא לרוץ כל פעם ל-AI ---
 const cache = {
@@ -260,7 +260,7 @@ router.post('/insights', async (req, res) => {
     const kpis = await fetchKPIs()
 
     // אם אין מפתח — נחזיר פולבאק מקומי
-    if (!process.env.OPENAI_API_KEY) {
+    if (!'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') {
       const ai = localFallback(kpis, userQuestion)
       const payload = { kpis, ai }
       cache.last = { at: Date.now(), payload }

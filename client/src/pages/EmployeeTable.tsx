@@ -12,8 +12,10 @@ export type Employee = {
   start: string
   end: string
   systemRole: 'worker' | 'manager' | 'hr' | 'it'
-  managerId?: string // ✅ הוספת מזהה מנהל
+  managerId?: string
 }
+
+const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || 'http://localhost:5000/api'
 
 const EmployeeTable: React.FC = () => {
   const [search, setSearch] = useState('')
@@ -21,15 +23,40 @@ const EmployeeTable: React.FC = () => {
   const [showForm, setShowForm] = useState(false)
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const authHeader = () => {
+    const token =
+      localStorage.getItem('token') ||
+      sessionStorage.getItem('token') ||
+      ''
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  }
 
   const fetchEmployees = async () => {
     try {
       setLoading(true)
-      const res = await fetch('http://localhost:5000/api/employees')
-      const data = await res.json()
-      setEmployees(data)
-    } catch (error) {
-      console.error('Failed to fetch employees:', error)
+      setError(null)
+
+      const res = await fetch(`${API_BASE}/employees`, {
+        headers: { ...authHeader() },
+      })
+
+      // אם יש כשל הרשאה/שגיאה – אל נקרוס
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '')
+        console.error('GET /employees failed:', res.status, txt)
+        setEmployees([]) // שתמיד יהיה מערך
+        setError(`Failed to load employees (HTTP ${res.status})`)
+        return
+      }
+
+      const data = await res.json().catch(() => ([] as Employee[]))
+      setEmployees(Array.isArray(data) ? data : [])
+    } catch (e) {
+      console.error('Failed to fetch employees:', e)
+      setEmployees([]) // שתמיד יהיה מערך
+      setError('Network error')
     } finally {
       setLoading(false)
     }
@@ -37,9 +64,10 @@ const EmployeeTable: React.FC = () => {
 
   useEffect(() => {
     fetchEmployees()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const filtered = employees.filter((emp) =>
+  const filtered = (employees || []).filter((emp) =>
     (emp.name || '').toLowerCase().includes(search.toLowerCase())
   )
 
@@ -56,8 +84,9 @@ const EmployeeTable: React.FC = () => {
   const handleDelete = async (_id: string) => {
     if (!window.confirm('Are you sure you want to delete this employee?')) return
     try {
-      const res = await fetch(`http://localhost:5000/api/employees/${_id}`, {
+      const res = await fetch(`${API_BASE}/employees/${_id}`, {
         method: 'DELETE',
+        headers: { ...authHeader() },
       })
       if (!res.ok) throw new Error('Delete failed')
       setEmployees((prev) => prev.filter((emp) => emp._id !== _id))
@@ -66,7 +95,6 @@ const EmployeeTable: React.FC = () => {
     }
   }
 
-  // ✅ פונקציה למציאת שם המנהל לפי ת"ז
   const getManagerName = (managerId?: string): string => {
     if (!managerId) return '-'
     const manager = employees.find((e) => e.id === managerId)
@@ -101,6 +129,10 @@ const EmployeeTable: React.FC = () => {
         </button>
       </div>
 
+      {error && (
+        <div className="mb-3 rounded bg-red-50 p-3 text-sm text-red-700">{error}</div>
+      )}
+
       {loading ? (
         <div className="flex justify-center items-center h-40">
           <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -114,7 +146,7 @@ const EmployeeTable: React.FC = () => {
                 <th className="px-4 py-3">ID</th>
                 <th className="px-4 py-3">Role</th>
                 <th className="px-4 py-3">System Role</th>
-                <th className="px-4 py-3">Manager</th> {/* ✅ עמודת מנהל */}
+                <th className="px-4 py-3">Manager</th>
                 <th className="px-4 py-3">Phone</th>
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Start</th>
@@ -123,13 +155,13 @@ const EmployeeTable: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((emp, i) => (
-                <tr key={i} className="border-b hover:bg-gray-50">
+              {filtered.map((emp) => (
+                <tr key={emp._id} className="border-b hover:bg-gray-50">
                   <td className="px-4 py-3">{emp.name}</td>
                   <td className="px-4 py-3">{emp.id}</td>
                   <td className="px-4 py-3">{emp.role}</td>
                   <td className="px-4 py-3">{emp.systemRole}</td>
-                  <td className="px-4 py-3">{getManagerName(emp.managerId)}</td> {/* ✅ הצגת המנהל */}
+                  <td className="px-4 py-3">{getManagerName(emp.managerId)}</td>
                   <td className="px-4 py-3">{emp.phone}</td>
                   <td className="px-4 py-3">{emp.email}</td>
                   <td className="px-4 py-3">{emp.start}</td>
@@ -152,6 +184,13 @@ const EmployeeTable: React.FC = () => {
                   </td>
                 </tr>
               ))}
+              {filtered.length === 0 && (
+                <tr>
+                  <td className="px-4 py-6 text-center text-gray-500" colSpan={10}>
+                    No employees found
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
