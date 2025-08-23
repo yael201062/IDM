@@ -14,6 +14,10 @@ app.use('/api/login', require('./routes/login'))
 app.use('/api/attendance', require('./routes/attendance'))
 app.use('/api/change-password', require('./routes/change-password'))
 app.use('/api/requests', require('./routes/requests'))
+app.use('/api/roles', require('./routes/roles'))
+app.use('/api/permissions', require('./routes/permissions'))
+
+
 
 mongoose.connect('mongodb://127.0.0.1:27017/IDM')
   .then(() => console.log('MongoDB connected'))
