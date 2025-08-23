@@ -97,12 +97,12 @@ const NewEmployeeForm: React.FC<Props> = ({ onClose, onSubmit, editingEmployee }
       !form.lastName ||
       !form.id ||
       !form.email ||
-      !(form.roleId || form.role) ||
+      !form.roleId ||     // מחייב roleId מהרשימה
       !form.start ||
       !form.birthday ||
       !form.systemRole
     ) {
-      return setError('All required fields must be filled')
+      return setError('All required fields must be filled (Role is required)')
     }
 
     if (!/^[0-9]{9}$/.test(form.id)) return setError('ID must be 9 digits')
@@ -114,6 +114,8 @@ const NewEmployeeForm: React.FC<Props> = ({ onClose, onSubmit, editingEmployee }
         ? `http://localhost:5000/api/employees/${editingEmployee._id}`
         : 'http://localhost:5000/api/employees'
       const method = editingEmployee ? 'PUT' : 'POST'
+
+      console.log('Submitting new employee payload:', form)
 
       const res = await fetch(url, {
         method,
@@ -140,7 +142,6 @@ const NewEmployeeForm: React.FC<Props> = ({ onClose, onSubmit, editingEmployee }
 
         {error && <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
-        {/* שתי עמודות קבועות, מרווח אחיד */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className={label}>First Name</label>
@@ -151,7 +152,6 @@ const NewEmployeeForm: React.FC<Props> = ({ onClose, onSubmit, editingEmployee }
             <input name="lastName" placeholder="Last Name" className={ctl} value={form.lastName} onChange={handleChange} />
           </div>
 
-          {/* ID | Role – באותה שורה ובאותו גודל */}
           <div>
             <label className={label}>ID</label>
             <input name="id" placeholder="ID" className={ctl} value={form.id} onChange={handleChange} disabled={!!editingEmployee} />
@@ -201,7 +201,6 @@ const NewEmployeeForm: React.FC<Props> = ({ onClose, onSubmit, editingEmployee }
             </select>
           </div>
 
-          {/* Direct Manager – תופס רוחב מלא בשתי עמודות */}
           <div className="md:col-span-2">
             <label className={label}>Direct Manager</label>
             <select name="managerId" className={ctl} value={form.managerId} onChange={handleChange}>

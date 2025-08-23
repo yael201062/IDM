@@ -1,9 +1,10 @@
 const express = require('express')
 const router = express.Router()
 const Employee = require('../models/Employee')
-const Role = require('../models/Role')             // 🆕 לעדכון usersCount
+const Role = require('../models/Role')
 const bcrypt = require('bcryptjs')
 const { exec } = require('child_process')
+const mongoose = require('mongoose')           // 🆕 נדרש לולידציה של ObjectId
 require('dotenv').config()
 
 // ▶ יצירת עובד חדש
@@ -14,7 +15,7 @@ router.post('/', async (req, res) => {
       lastName,
       id,
       role,            // שם הרול (לטייטל/תצוגה/AD)
-      roleId,          // 🆕 מזהה רול אמיתי (ObjectId מ-roles)
+      roleId,          // מזהה רול אמיתי (ObjectId מ-roles)
       phone,
       email,
       start,
@@ -25,7 +26,9 @@ router.post('/', async (req, res) => {
       managerId,
     } = req.body
 
-    console.log('📥 יצירת עובד חדש עם הנתונים:', req.body)
+    console.log('📥 POST /api/employees body:', {
+      firstName, lastName, id, role, roleId, email, systemRole, managerId
+    })
 
     const existing = await Employee.findOne({ id })
     if (existing) {
@@ -42,7 +45,7 @@ router.post('/', async (req, res) => {
       lastName,
       id,
       role,
-      roleId,          // 🆕 נשמר המפתח הזר
+      roleId,
       phone,
       email,
       start,
@@ -56,10 +59,26 @@ router.post('/', async (req, res) => {
 
     await employee.save()
 
-    // 🆕 להגדיל מונה ברול שנבחר
-    if (roleId) {
-      await Role.findByIdAndUpdate(roleId, { $inc: { usersCount: 1 } })
-        .catch((e) => console.error('❌ increment usersCount failed:', e.message))
+    // 🆕 להגדיל מונה ברול שנבחר (עם בדיקת תוקף וזיהוי שגיאות)
+    if (!roleId) {
+      console.warn('⚠️ No roleId provided – usersCount not incremented')
+    } else if (!mongoose.Types.ObjectId.isValid(roleId)) {
+      console.error('❌ Invalid roleId format:', roleId)
+    } else {
+      try {
+        const inc = await Role.findByIdAndUpdate(
+          roleId,
+          { $inc: { usersCount: 1 } },
+          { new: true }
+        )
+        if (!inc) {
+          console.error('❌ Role not found for roleId:', roleId)
+        } else {
+          console.log('✅ usersCount incremented for roleId', roleId, '→', inc.usersCount)
+        }
+      } catch (e) {
+        console.error('❌ increment usersCount failed:', e.message)
+      }
     }
 
     // PowerShell command to create AD user (ללא שינוי)
@@ -149,7 +168,6 @@ router.put('/:id', async (req, res) => {
   try {
     const updates = req.body
 
-    // נשלוף את העובד לפני העדכון כדי להשוות roleId
     const prev = await Employee.findById(req.params.id)
     if (!prev) return res.status(404).json({ error: 'Employee not found' })
 
@@ -163,15 +181,16 @@ router.put('/:id', async (req, res) => {
       { new: true }
     )
 
-    // 🆕 אם roleId הוחלף – לעדכן מונים בין רול ישן לחדש
     const prevRoleId = String(prev.roleId || '')
     const nextRoleId = String(updatedEmployee.roleId || '')
     if (prevRoleId !== nextRoleId) {
       if (prev.roleId) {
         await Role.findByIdAndUpdate(prev.roleId, { $inc: { usersCount: -1 } }).catch(() => {})
+        console.log('↘️ decremented usersCount for roleId', prev.roleId)
       }
       if (updatedEmployee.roleId) {
         await Role.findByIdAndUpdate(updatedEmployee.roleId, { $inc: { usersCount: 1 } }).catch(() => {})
+        console.log('↗️ incremented usersCount for roleId', updatedEmployee.roleId)
       }
     }
 
