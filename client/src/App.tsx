@@ -1,34 +1,44 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React from 'react'
+import LayoutSelector from './layouts/LayoutSelector'
+import Dashboard from './pages/Dashboard'
+import PersonalDetails from './pages/PersonalDetails'
+import { Routes, Route } from 'react-router-dom'
+import Login from './pages/Login'
+import Attendance from './pages/Attendance'
+import MyRequests from './pages/MyRequests'
+import MyEmployees from './pages/MyEmployees'
+import EmployeeTable from './pages/EmployeeTable'
+import PermissionsPage from './pages/PermissionsPage'
+import RolesPage from './pages/Roles'
+import ChangePassword from './pages/ChangePassword'
+import ManagerNotifications from './pages/ManagerNotifications'
 
-function App() {
-  const [count, setCount] = useState(0)
 
+const Placeholder = ({ title }: { title: string }) => (
+  <div className="p-10 text-2xl">{title}</div>
+)
+
+const App: React.FC = () => {
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/change-password" element={<ChangePassword />} />
+      <Route element={<LayoutSelector />}>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/personal-details" element={<PersonalDetails />} />
+        <Route path="/attendance" element={<Attendance />} />
+        <Route path="/my-requests" element={<MyRequests />} />
+        <Route path="/my-employees" element={<MyEmployees />} />
+        <Route path="/employees" element={<EmployeeTable />} />
+        <Route path="/permissions" element={<PermissionsPage />} />
+        <Route path="/roles" element={<RolesPage />} />
+        <Route path="/notifications" element={<ManagerNotifications />} />
+        <Route path="/call-center" element={<Placeholder title="Call Center Page" />} />
+        <Route path="/help" element={<Placeholder title="Help Page" />} />
+        <Route path="/logout" element={<Placeholder title="Logged Out" />} />
+        <Route path="*" element={<Placeholder title="404 Not Found" />} />
+      </Route>
+    </Routes>
   )
 }
 
