@@ -13,6 +13,7 @@ app.use('/api/attendance', require('./routes/attendance'))
 app.use('/api/change-password', require('./routes/change-password'))
 app.use('/api/requests', require('./routes/requests'))
 app.use('/api/roles', require('./routes/roles'))
+app.use('/api/permissions', require('./routes/permissions'))
 
 
 
