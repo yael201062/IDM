@@ -12,6 +12,7 @@ import PermissionsPage from './pages/PermissionsPage'
 import RolesPage from './pages/Roles'
 import ChangePassword from './pages/ChangePassword'
 import ManagerNotifications from './pages/ManagerNotifications'
+import Logout from './pages/Logout'
 
 
 const Placeholder = ({ title }: { title: string }) => (
@@ -35,7 +36,7 @@ const App: React.FC = () => {
         <Route path="/notifications" element={<ManagerNotifications />} />
         <Route path="/call-center" element={<Placeholder title="Call Center Page" />} />
         <Route path="/help" element={<Placeholder title="Help Page" />} />
-        <Route path="/logout" element={<Placeholder title="Logged Out" />} />
+        <Route path="/logout" element={<Logout />} />
         <Route path="*" element={<Placeholder title="404 Not Found" />} />
       </Route>
     </Routes>
