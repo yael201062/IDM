@@ -7,6 +7,8 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
+const aiRoutes = require('./routes/ai')
+app.use('/api/ai', aiRoutes)
 app.use('/api/employees', require('./routes/employees'))
 app.use('/api/login', require('./routes/login'))
 app.use('/api/attendance', require('./routes/attendance'))
