@@ -25,12 +25,15 @@ const EmployeeTable: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const authHeader = () => {
+  // מחזיר תמיד Record<string,string> (HeadersInit חוקי)
+  const authHeaders = (): Record<string, string> => {
     const token =
       localStorage.getItem('token') ||
       sessionStorage.getItem('token') ||
       ''
-    return token ? { Authorization: `Bearer ${token}` } : {}
+    const h: Record<string, string> = {}
+    if (token) h.Authorization = `Bearer ${token}`
+    return h
   }
 
   const fetchEmployees = async () => {
@@ -38,24 +41,24 @@ const EmployeeTable: React.FC = () => {
       setLoading(true)
       setError(null)
 
-      const res = await fetch(`${API_BASE}/employees`, {
-        headers: { ...authHeader() },
+      // שינוי חשוב: שולחים all=1 כדי לקבל את כל העובדים
+      const res = await fetch(`${API_BASE}/employees?all=1`, {
+        headers: { ...authHeaders() },
       })
 
-      // אם יש כשל הרשאה/שגיאה – אל נקרוס
       if (!res.ok) {
         const txt = await res.text().catch(() => '')
         console.error('GET /employees failed:', res.status, txt)
-        setEmployees([]) // שתמיד יהיה מערך
+        setEmployees([])
         setError(`Failed to load employees (HTTP ${res.status})`)
         return
       }
 
-      const data = await res.json().catch(() => ([] as Employee[]))
-      setEmployees(Array.isArray(data) ? data : [])
+      const data = await res.json().catch(() => [] as Employee[])
+      setEmployees(Array.isArray(data) ? (data as Employee[]) : [])
     } catch (e) {
       console.error('Failed to fetch employees:', e)
-      setEmployees([]) // שתמיד יהיה מערך
+      setEmployees([])
       setError('Network error')
     } finally {
       setLoading(false)
@@ -86,7 +89,7 @@ const EmployeeTable: React.FC = () => {
     try {
       const res = await fetch(`${API_BASE}/employees/${_id}`, {
         method: 'DELETE',
-        headers: { ...authHeader() },
+        headers: { ...authHeaders() },
       })
       if (!res.ok) throw new Error('Delete failed')
       setEmployees((prev) => prev.filter((emp) => emp._id !== _id))

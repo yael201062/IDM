@@ -1,19 +1,64 @@
-
 const express = require('express');
 const router = express.Router();
 const Employee = require('../models/Employee');
-const Role = require('../models/Role')
-const Permission = require('../models/Permission')
+const Role = require('../models/Role');
+const Permission = require('../models/Permission');
 const AttendanceRecord = require('../models/AttendanceRecord');
 const bcrypt = require('bcryptjs');
 const { exec } = require('child_process');
 require('dotenv').config();
-const mongoose = require('mongoose')
-const auth = require('../middleware/auth')
-/** כלי עזר קטן: בדיקת הרשאה לפי systemRole */
-const isHRorIT = (role) => role === 'hr' || role === 'it'
-const isManager = (role) => role === 'manager'
+const mongoose = require('mongoose');
+const auth = require('../middleware/auth');
 
+/** כלי עזר קטן: בדיקת הרשאה לפי systemRole */
+const isHRorIT = (role) => role === 'hr' || role === 'it';
+const isManager = (role) => role === 'manager';
+
+/* === helper לגזירת ת״ז של המשתמש מה-token === */
+async function resolvePersonalIdFromUser(user) {
+  if (!user) return null;
+
+  const asString = String(user.id || '');
+  if (/^\d{9}$/.test(asString)) return asString;
+
+  const objectId =
+    (user._id && String(user._id)) ||
+    (user.mongoId && String(user.mongoId)) ||
+    null;
+  if (objectId && mongoose.Types.ObjectId.isValid(objectId)) {
+    const emp = await Employee.findById(objectId).lean();
+    if (emp?.id) return emp.id;
+  }
+
+  if (user.email) {
+    const emp = await Employee.findOne({ email: user.email }).lean();
+    if (emp?.id) return emp.id;
+  }
+
+  const userName = user.username || user.userName || user.samAccountName || null;
+  if (userName) {
+    const emp = await Employee.findOne({ id: String(userName) }).lean();
+    if (emp?.id) return emp.id;
+  }
+
+  return null;
+}
+
+/* === NEW: גזירת systemRole אפקטיבי מהטוקן או מה-DB (אם חסר בטוקן) === */
+async function getEffectiveSysRole(user) {
+  // קודם מהטוקן
+  let sys = String(user?.systemRole || '').trim().toLowerCase();
+  if (sys) return sys;
+
+  // אם חסר – נאתר ת"ז של המשתמש המחובר ונשלוף מה-DB
+  const personalId = await resolvePersonalIdFromUser(user);
+  if (!personalId) return '';
+
+  const me = await Employee.findOne({ id: personalId }, 'systemRole').lean();
+  return String(me?.systemRole || '').trim().toLowerCase();
+}
+
+/* ===================== POST /api/employees ===================== */
 router.post('/', async (req, res) => {
   try {
     const {
@@ -30,15 +75,15 @@ router.post('/', async (req, res) => {
       systemRole,
       department,
       managerId,
-    } = req.body
+    } = req.body;
 
     console.log('📥 POST /api/employees body:', {
       firstName, lastName, id, role, roleId, email, systemRole, managerId
-    })
+    });
 
-    const existing = await Employee.findOne({ id })
+    const existing = await Employee.findOne({ id });
     if (existing) {
-      return res.status(400).json({ error: 'Employee with this ID already exists' })
+      return res.status(400).json({ error: 'Employee with this ID already exists' });
     }
 
     const name = `${firstName}-${lastName}`;
@@ -61,35 +106,33 @@ router.post('/', async (req, res) => {
       password: hashedPassword,
       systemRole,
       managerId,
-    })
+    });
 
-    await employee.save()
+    await employee.save();
 
-    // הגדלת מונה ברול
     if (!roleId) {
-      console.warn('⚠️ No roleId provided – usersCount not incremented')
+      console.warn('⚠️ No roleId provided – usersCount not incremented');
     } else if (!mongoose.Types.ObjectId.isValid(roleId)) {
-      console.error('❌ Invalid roleId format:', roleId)
+      console.error('❌ Invalid roleId format:', roleId);
     } else {
       try {
         const inc = await Role.findByIdAndUpdate(
           roleId,
           { $inc: { usersCount: 1 } },
           { new: true }
-        )
+        );
         if (!inc) {
-          console.error('❌ Role not found for roleId:', roleId)
+          console.error('❌ Role not found for roleId:', roleId);
         } else {
-          console.log('✅ usersCount incremented for roleId', roleId, '→', inc.usersCount)
+          console.log('✅ usersCount incremented for roleId', roleId, '→', inc.usersCount);
         }
       } catch (e) {
-        console.error('❌ increment usersCount failed:', e.message)
+        console.error('❌ increment usersCount failed:', e.message);
       }
     }
 
-    // יצירת משתמש ב-AD
-    const adUser = process.env.AD_USERNAME
-    const adPass = process.env.AD_PASSWORD
+    const adUser = process.env.AD_USERNAME;
+    const adPass = process.env.AD_PASSWORD;
     const psCreate = [
       `$password = ConvertTo-SecureString '${adPass}' -AsPlainText -Force;`,
       `$cred = New-Object System.Management.Automation.PSCredential('${adUser}', $password);`,
@@ -105,61 +148,58 @@ router.post('/', async (req, res) => {
       `-ChangePasswordAtLogon $true`,
       `-Path 'CN=Users,DC=IDM,DC=local'`,
       `-Credential $cred`,
-    ].join(' ')
+    ].join(' ');
 
     exec(`powershell.exe -Command "${psCreate}"`, async (err, stdout, stderr) => {
       if (err || (stderr && stderr.toLowerCase().includes('error'))) {
-        console.error('AD Error (create):', stderr || err?.message)
-        return res.status(500).json({ error: 'Employee created, but AD failed' })
+        console.error('AD Error (create):', stderr || err?.message);
+        return res.status(500).json({ error: 'Employee created, but AD failed' });
       }
 
-      console.log(`✅ User ${id} created in AD`)
+      console.log(`✅ User ${id} created in AD`);
 
       if (managerId) {
         try {
-          const manager = await Employee.findOne({ id: managerId })
+          const manager = await Employee.findOne({ id: managerId });
           if (manager) {
-            const dnManager = `CN=${manager.name},CN=Users,DC=IDM,DC=local`
+            const dnManager = `CN=${manager.name},CN=Users,DC=IDM,DC=local`;
             const setManagerCmd = [
               `$password = ConvertTo-SecureString '${adPass}' -AsPlainText -Force;`,
               `$cred = New-Object System.Management.Automation.PSCredential('${adUser}', $password);`,
               `Start-Sleep -Seconds 2;`,
               `Set-ADUser -Identity '${id}' -Manager '${dnManager}' -Credential $cred`,
-            ].join(' ')
+            ].join(' ');
             exec(`powershell.exe -Command "${setManagerCmd}"`, (err2, stdout2, stderr2) => {
               if (err2 || (stderr2 && stderr2.toLowerCase().includes('error'))) {
-                console.error('❌ Failed to set manager in AD:', stderr2 || err2?.message)
+                console.error('❌ Failed to set manager in AD:', stderr2 || err2?.message);
               } else {
-                console.log(`✅ Manager set in AD for user ${id}`)
+                console.log(`✅ Manager set in AD for user ${id}`);
               }
-            })
+            });
           }
         } catch (e) {
-          console.error('❌ Failed to fetch manager for AD:', e)
+          console.error('❌ Failed to fetch manager for AD:', e);
         }
       }
 
       try {
         if (roleId && mongoose.Types.ObjectId.isValid(roleId)) {
-          const perm = await Permission.findOne({ roleId }).lean()
+          const perm = await Permission.findOne({ roleId }).lean();
           if (perm) {
             const allGroups = (perm.adGroups || [])
-            .map((g) => String(g).trim())
-            .filter(Boolean)
-
+              .map((g) => String(g).trim())
+              .filter(Boolean);
 
             if (allGroups.length) {
               const groupsQuoted = allGroups
                 .map((g) => `'${g.replace(/'/g, "''")}'`)
-                .join(',')
+                .join(',');
 
               const psGroups = [
                 `Import-Module ActiveDirectory;`,
                 `$password = ConvertTo-SecureString '${adPass}' -AsPlainText -Force;`,
                 `$cred = New-Object System.Management.Automation.PSCredential('${adUser}', $password);`,
-                // לפעמים ל-AD לוקח רגע לראות את המשתמש החדש
                 `Start-Sleep -Seconds 3;`,
-                // טען את אובייקט המשתמש
                 `try { $u = Get-ADUser -Identity '${id}' -Credential $cred -ErrorAction Stop } catch { Write-Output ('ERR:USER:{0}' -f $_.Exception.Message); exit 0 }`,
                 `$groups=@(${groupsQuoted});`,
                 `foreach ($g in $groups) {`,
@@ -171,58 +211,78 @@ router.post('/', async (req, res) => {
                 `    Write-Output ('ERR:{0}:{1}' -f $g, $_.Exception.Message)`,
                 `  }`,
                 `}`,
-              ].join(' ')
+              ].join(' ');
 
               exec(`powershell.exe -Command "${psGroups}"`, (e3, out3 = '', err3 = '') => {
-                console.log('PS Add-ADGroupMember stdout:\n', out3)
-                if (err3) console.warn('PS Add-ADGroupMember stderr:\n', err3)
-                const anyOk = /(^|\n)OK:/i.test(out3)
-                const anyErr = /(^|\n)ERR:/i.test(out3) || (err3 && err3.toLowerCase().includes('error'))
+                console.log('PS Add-ADGroupMember stdout:\n', out3);
+                if (err3) console.warn('PS Add-ADGroupMember stderr:\n', err3);
+                const anyOk = /(^|\n)OK:/i.test(out3);
+                const anyErr = /(^|\n)ERR:/i.test(out3) || (err3 && err3.toLowerCase().includes('error'));
                 if (e3) {
-                  console.error('❌ Add-ADGroupMember exec error:', e3.message)
+                  console.error('❌ Add-ADGroupMember exec error:', e3.message);
                 } else if (anyErr && !anyOk) {
-                  console.error('❌ Failed to add user to groups (no OK lines). See stdout above.')
+                  console.error('❌ Failed to add user to groups (no OK lines). See stdout above.');
                 } else {
-                  console.log(`✅ Finished adding ${id} to role groups: ${allGroups.join(', ')}`)
+                  console.log(`✅ Finished adding ${id} to role groups: ${allGroups.join(', ')}`);
                 }
-              })
+              });
             } else {
-              console.log('ℹ️ No groups configured for this role.')
+              console.log('ℹ️ No groups configured for this role.');
             }
           } else {
-            console.log('ℹ️ No Permission doc for this role yet.')
+            console.log('ℹ️ No Permission doc for this role yet.');
           }
         } else {
-          console.log('ℹ️ roleId missing/invalid – skipping group membership.')
+          console.log('ℹ️ roleId missing/invalid – skipping group membership.');
         }
       } catch (e) {
-        console.error('❌ Error while adding user to role groups:', e.message)
+        console.error('❌ Error while adding user to role groups:', e.message);
       }
 
-      return res.status(201).json({ message: 'Employee created successfully' })
-    })
+      return res.status(201).json({ message: 'Employee created successfully' });
+    });
   } catch (err) {
     console.error('Server error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// === כל העובדים ===
+/* ===================== GET /api/employees ===================== */
 router.get('/', auth, async (req, res) => {
   try {
     const rawUser = req.user || {};
-    const sysRole = String(rawUser.systemRole || '').toLowerCase(); // ← נירמול
-    const userId  = rawUser.id;
 
-    console.log('🔐 /api/employees requester:', { userId, sysRole });
+    // ⚠️ שינוי כאן: שימוש ב-systemRole אפקטיבי (מהטוקן או מה-DB)
+    const sysRole = await getEffectiveSysRole(rawUser);
+
+    const scope = String(req.query.scope || '').toLowerCase();
+    const wantAll =
+      String(req.query.all || '').toLowerCase() === '1' ||
+      scope === 'all' || scope === '*' || scope === 'everything';
+
+    const personalId = await resolvePersonalIdFromUser(rawUser);
+    console.log('🔐 /api/employees requester:', {
+      tokenId: rawUser.id,
+      sysRole,
+      scope,
+      wantAll,
+      resolvedPersonalId: personalId
+    });
 
     let filter = {};
-    if (sysRole === 'manager') {
-      filter = { managerId: userId };
-    } else if (sysRole === 'hr' || sysRole === 'it') {
-      filter = {}; // רואה את כולם
+
+    if (isHRorIT(sysRole) && wantAll) {
+      filter = {};
+    } else if (scope === 'myreports') {
+      filter = personalId ? { managerId: personalId } : { _id: null };
+    } else if (isHRorIT(sysRole)) {
+      filter = {};
+    } else if (isManager(sysRole)) {
+      filter = personalId ? { managerId: personalId } : { _id: null };
     } else {
-      filter = { id: userId }; // עובד רגיל – רק את עצמו
+      if (!personalId) return res.json([]);
+      const hasReports = await Employee.exists({ managerId: personalId });
+      filter = hasReports ? { managerId: personalId } : { id: personalId };
     }
 
     const employees = await Employee.find(filter).lean();
@@ -233,65 +293,7 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-
-
-// === עובד לפי ת״ז (id האישי) ===
-router.get('/:id', async (req, res) => {
-  try {
-    const employee = await Employee.findOne({ id: req.params.id });
-    if (!employee) return res.status(404).json({ error: 'Employee not found' });
-    res.json(employee);
-  } catch (err) {
-    console.error('Error fetching employee:', err);
-    res.status(500).json({ error: 'Failed to fetch employee' });
-  }
-});
-
-router.put('/:id', async (req, res) => {
-  try {
-    const updates = { ...req.body };
-
-    const prev = await Employee.findById(req.params.id)
-    if (!prev) return res.status(404).json({ error: 'Employee not found' })
-
-    if (updates.firstName && updates.lastName) {
-      updates.name = `${updates.firstName}-${updates.lastName}`;
-    }
-
-    const updatedEmployee = await Employee.findOneAndUpdate(
-      { id: req.params.id },
-      updates,
-      { new: true }
-    );
-
-
-    if (!updatedEmployee) return res.status(404).json({ error: 'Employee not found' });
-    res.json(updatedEmployee);
-
-    const prevRoleId = String(prev.roleId || '')
-    const nextRoleId = String(updatedEmployee.roleId || '')
-    if (prevRoleId !== nextRoleId) {
-      if (prev.roleId) {
-        await Role.findByIdAndUpdate(prev.roleId, { $inc: { usersCount: -1 } }).catch(() => {})
-        console.log('↘️ decremented usersCount for roleId', prev.roleId)
-      }
-      if (updatedEmployee.roleId) {
-        await Role.findByIdAndUpdate(updatedEmployee.roleId, { $inc: { usersCount: 1 } }).catch(() => {})
-        console.log('↗️ incremented usersCount for roleId', updatedEmployee.roleId)
-      }
-
-    }
-
-    res.json(updatedEmployee)
-
-  } catch (err) {
-    console.error('❌ Update error:', err);
-    res.status(500).json({ error: 'Failed to update employee' });
-  }
-});
-
-// === סיכום לעמוד הבית (Dashboard) ===
-// GET /api/employees/:id/summary?start=YYYY-MM-DD&end=YYYY-MM-DD
+/* ===================== SUMMARY קודם ===================== */
 router.get('/:id/summary', async (req, res) => {
   try {
     const emp = await Employee.findOne({ id: req.params.id });
@@ -305,7 +307,6 @@ router.get('/:id/summary', async (req, res) => {
     const yearStart = new Date(now.getFullYear(), 0, 1);
     const yearEnd   = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
 
-    // חישוב שעות כאשר אין hours אבל יש start/end מסוג Date
     const hoursExpr = {
       $cond: [
         { $gt: ['$hours', 0] },
@@ -323,22 +324,18 @@ router.get('/:id/summary', async (req, res) => {
       ]
     };
 
-    // המרה בטוחה של השדה date למשתנה עזר dateParsed
     const dateParsedAddFields = {
       $addFields: {
         dateParsed: {
           $switch: {
             branches: [
-              // כבר מסוג Date
               { case: { $eq: [ { $type: '$date' }, 'date' ] }, then: '$date' },
-              // YYYY-MM-DD בלבד
               { case: { $and: [
                   { $eq: [ { $type: '$date' }, 'string' ] },
                   { $regexMatch: { input: '$date', regex: '^\\d{4}-\\d{2}-\\d{2}$' } }
                 ]},
                 then: { $dateFromString: { dateString: '$date', format: '%Y-%m-%d' } }
               },
-              // ISO עם זמן: YYYY-MM-DDTHH:mm...
               { case: { $and: [
                   { $eq: [ { $type: '$date' }, 'string' ] },
                   { $regexMatch: { input: '$date', regex: '^\\d{4}-\\d{2}-\\d{2}T' } }
@@ -352,7 +349,6 @@ router.get('/:id/summary', async (req, res) => {
       }
     };
 
-    // צריכת חופשה/מחלה בשנה (ימים)
     const yearAgg = await AttendanceRecord.aggregate([
       { $match: { employeeId: emp.id, type: { $in: ['vacation', 'sick'] } } },
       dateParsedAddFields,
@@ -366,7 +362,6 @@ router.get('/:id/summary', async (req, res) => {
     const remainingVacationDays = Math.max(0, (emp.baseVacationDays ?? 18) - vacationTakenThisYear);
     const remainingSickDays     = Math.max(0, (emp.baseSickDays ?? 30) - sickTakenThisYear);
 
-    // שעות עבודה/נוספות בטווח התצוגה
     const rangeAgg = await AttendanceRecord.aggregate([
       { $match: { employeeId: emp.id } },
       dateParsedAddFields,
@@ -403,7 +398,65 @@ router.get('/:id/summary', async (req, res) => {
   }
 });
 
+/* ===================== GET /api/employees/:id (לפי ת״ז) ===================== */
+router.get('/:id', async (req, res) => {
+  try {
+    const employee = await Employee.findOne({ id: req.params.id });
+    if (!employee) return res.status(404).json({ error: 'Employee not found' });
+    res.json(employee);
+  } catch (err) {
+    console.error('Error fetching employee:', err);
+    res.status(500).json({ error: 'Failed to fetch employee' });
+  }
+});
 
+/* ===================== PUT /api/employees/:id ===================== */
+/* שינוי קריטי (מסמן ⭐):
+   ⭐ התייחסות ל-param כאל Mongo _id אם הוא ObjectId חוקי,
+     אחרת כ-id אישי (ת״ז). אין עוד CastError על _id כאשר מעבירים ת״ז. */
+router.put('/:id', async (req, res) => {
+  try {
+    const updates = { ...req.body };
+    const param = req.params.id;
+    const isOid = mongoose.Types.ObjectId.isValid(param); // ⭐
 
-module.exports = router
+    if (updates.firstName && updates.lastName) {
+      updates.name = `${updates.firstName}-${updates.lastName}`;
+    }
 
+    // ⭐ שולפים "prev" לפי סוג הפרמטר
+    const prev = isOid
+      ? await Employee.findById(param)
+      : await Employee.findOne({ id: param });
+
+    if (!prev) return res.status(404).json({ error: 'Employee not found' });
+
+    // ⭐ עדכון לפי סוג הפרמטר
+    const updatedEmployee = isOid
+      ? await Employee.findByIdAndUpdate(param, updates, { new: true })
+      : await Employee.findOneAndUpdate({ id: param }, updates, { new: true });
+
+    if (!updatedEmployee) return res.status(404).json({ error: 'Employee not found' });
+
+    // עדכון מוני roles אם הוחלף roleId
+    const prevRoleId = String(prev.roleId || '');
+    const nextRoleId = String(updatedEmployee.roleId || '');
+    if (prevRoleId !== nextRoleId) {
+      if (prev.roleId) {
+        await Role.findByIdAndUpdate(prev.roleId, { $inc: { usersCount: -1 } }).catch(() => {});
+        console.log('↘️ decremented usersCount for roleId', prev.roleId);
+      }
+      if (updatedEmployee.roleId) {
+        await Role.findByIdAndUpdate(updatedEmployee.roleId, { $inc: { usersCount: 1 } }).catch(() => {});
+        console.log('↗️ incremented usersCount for roleId', updatedEmployee.roleId);
+      }
+    }
+
+    return res.json(updatedEmployee);
+  } catch (err) {
+    console.error('❌ Update error:', err);
+    res.status(500).json({ error: 'Failed to update employee' });
+  }
+});
+
+module.exports = router;
