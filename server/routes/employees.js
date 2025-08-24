@@ -18,9 +18,21 @@ const isManager = (role) => role === 'manager';
 async function resolvePersonalIdFromUser(user) {
   if (!user) return null;
 
-  const asString = String(user.id || '');
-  if (/^\d{9}$/.test(asString)) return asString;
+  // ✅ שינוי: ניקח מועמדים אפשריים לת״ז מתוך הטוקן (כולל empId/employeeId/personalId)
+  const candidates = [
+    user.empId,        // נפוץ בטוקן אצלך
+    user.employeeId,
+    user.personalId,
+    user.id,           // מהגרסה הקודמת
+  ]
+    .map(v => (v == null ? '' : String(v)))
+    .filter(Boolean);
 
+  for (const cand of candidates) {
+    if (/^\d{9}$/.test(cand)) return cand;
+  }
+
+  // לפי _id/ mongoId
   const objectId =
     (user._id && String(user._id)) ||
     (user.mongoId && String(user.mongoId)) ||
@@ -30,11 +42,13 @@ async function resolvePersonalIdFromUser(user) {
     if (emp?.id) return emp.id;
   }
 
+  // לפי email
   if (user.email) {
     const emp = await Employee.findOne({ email: user.email }).lean();
     if (emp?.id) return emp.id;
   }
 
+  // לפי username/samAccountName
   const userName = user.username || user.userName || user.samAccountName || null;
   if (userName) {
     const emp = await Employee.findOne({ id: String(userName) }).lean();

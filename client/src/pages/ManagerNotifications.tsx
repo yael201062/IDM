@@ -10,21 +10,39 @@ interface Request {
   employeeId: string
 }
 
+const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || 'http://localhost:5000/api' // ✅ חדש
+
 const ManagerNotifications: React.FC = () => {
   const { user } = useUser()
   const [requests, setRequests] = useState<Request[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  // ✅ חדש: הפקת כותרות עם Authorization תמיד
+  const authHeaders = (): Record<string, string> => {
+    const token =
+      localStorage.getItem('token') ||
+      sessionStorage.getItem('token') ||
+      ''
+    const h: Record<string, string> = {}
+    if (token) h.Authorization = `Bearer ${token}`
+    return h
+  }
+
   const fetchRequests = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/requests/for-manager', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
+      const res = await fetch(`${API_BASE}/requests/for-manager`, {
+        headers: { ...authHeaders() },
       })
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '')
+        console.error('GET /requests/for-manager failed:', res.status, txt)
+        setRequests([])
+        setError('Failed to load requests')
+        return
+      }
       const data = await res.json()
-      setRequests(data)
+      setRequests(Array.isArray(data) ? data : [])
     } catch (err) {
       setError('Failed to load requests')
       console.error(err)
@@ -39,11 +57,11 @@ const ManagerNotifications: React.FC = () => {
 
   const handleAction = async (requestId: string, status: 'approved' | 'rejected') => {
     try {
-      const res = await fetch(`http://localhost:5000/api/requests/${requestId}/status`, {
+      const res = await fetch(`${API_BASE}/requests/${requestId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          ...authHeaders(), // ✅ שינוי
         },
         body: JSON.stringify({ status }),
       })
@@ -51,7 +69,6 @@ const ManagerNotifications: React.FC = () => {
       if (!res.ok) throw new Error('Failed to update status')
       const updated = await res.json()
 
-      // עדכון ברשימה המקומית
       setRequests((prev) => prev.filter((r) => r._id !== updated._id))
     } catch (err) {
       alert('Error updating status')
