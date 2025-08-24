@@ -28,7 +28,7 @@ const SeverityBadge: React.FC<{ level: Insight['severity'] }> = ({ level }) => {
     medium: 'bg-amber-100 text-amber-700',
     high: 'bg-rose-100 text-rose-700',
   }
-  return <span className={`px-2 py-0.5 rounded-full text-xs ${map[level]}`}>{level}</span>
+  return <span className={`px-2 py-0.5 rounded-full text-xs capitalize ${map[level]}`}>{level}</span>
 }
 
 const ManagerDashboard: React.FC = () => {
@@ -80,7 +80,7 @@ const ManagerDashboard: React.FC = () => {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="שאלי את ה-AI: למשל, מי עושה הכי הרבה שעות נוספות?"
+            placeholder="Ask the AI — e.g., who has the most overtime?"
             className="border rounded px-3 py-2 text-sm w-80"
           />
           <button
@@ -88,7 +88,7 @@ const ManagerDashboard: React.FC = () => {
             disabled={loading}
             className="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:opacity-60"
           >
-            {loading ? 'חושבת…' : 'שאלי'}
+            {loading ? 'Thinking…' : 'Ask'}
           </button>
         </div>
       </div>
@@ -100,7 +100,7 @@ const ManagerDashboard: React.FC = () => {
           <div className="text-2xl font-semibold">{kpis?.employees ?? '—'}</div>
         </div>
         <div className="bg-white shadow rounded-lg p-4">
-          <div className="text-gray-500 text-xs">Avg hours / work day</div>
+          <div className="text-gray-500 text-xs">Avg hours / workday</div>
           <div className="text-2xl font-semibold">{kpis?.avgHoursPerWorkDay ?? '—'}</div>
         </div>
         <div className="bg-white shadow rounded-lg p-4">
@@ -117,11 +117,11 @@ const ManagerDashboard: React.FC = () => {
       <div className="bg-white shadow rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold">AI Insights</h2>
-          {loading && <span className="text-sm text-gray-500">טוען…</span>}
+          {loading && <span className="text-sm text-gray-500">Loading…</span>}
         </div>
         {error && <div className="text-sm text-rose-600 mb-2">{error}</div>}
         {insights.length === 0 ? (
-          <div className="text-sm text-gray-500">אין תובנות להצגה כרגע.</div>
+          <div className="text-sm text-gray-500">No insights to display yet.</div>
         ) : (
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {insights.map((ins) => (

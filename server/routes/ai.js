@@ -1,27 +1,32 @@
 // routes/ai.js
 const express = require('express')
 const router = express.Router()
-const OpenAI = require('openai') // npm i openai@latest
+const { GoogleGenerativeAI, SchemaType } = require('@google/generative-ai')
 const Employee = require('../models/Employee')
 const AttendanceRecord = require('../models/AttendanceRecord')
 
-const client = new OpenAI({ apiKey: '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'})
+require('dotenv').config()
 
-// --- קאשינג בזיכרון כדי לא לרוץ כל פעם ל-AI ---
+const GEMINI_API_KEY = process.env.GOOGLE_AI_API_KEY
+const gemini = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null
+
 const cache = {
-  last: null,          // { at: Date, payload: any }
-  ttlMs: 10 * 60 * 1000 // 10 דקות
+  last: null,
+  ttlMs: 10 * 60 * 1000,
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
+// Basic error classification for retry logic
 const isRateLimit = (err) =>
-  err?.status === 429 && err?.error?.code !== 'insufficient_quota'
+  err?.status === 429 ||
+  err?.code === 429 ||
+  /RESOURCE_EXHAUSTED|rate limit/i.test(String(err?.message || ''))
 
 const isQuota = (err) =>
-  err?.status === 429 && (err?.error?.code === 'insufficient_quota' || err?.code === 'insufficient_quota')
+  /quota|exceeded|insufficient/i.test(String(err?.message || ''))
 
-// --- KPIs בסיסיים ל-30 יום + העשרה בשמות לטופ אוברטיים ---
+// --- KPIs for last 30 days + name enrichment + per-employee breakdown (for dashboard) ---
 async function fetchKPIs() {
   const now = new Date()
   const from = new Date(now); from.setDate(from.getDate() - 30)
@@ -39,17 +44,19 @@ async function fetchKPIs() {
     } }
   ])
 
-  const totals = perEmp.reduce((acc,r) => {
+  const totals = perEmp.reduce((acc, r) => {
     acc.totalHours += r.hours || 0
     acc.totalWorkDays += r.workDays || 0
     acc.totalSickDays += r.sickDays || 0
     acc.totalVacationDays += r.vacDays || 0
     return acc
-  }, { totalHours:0, totalWorkDays:0, totalSickDays:0, totalVacationDays:0 })
+  }, { totalHours: 0, totalWorkDays: 0, totalSickDays: 0, totalVacationDays: 0 })
 
-  const avgHoursPerWorkDay = totals.totalWorkDays ? Number((totals.totalHours / totals.totalWorkDays).toFixed(2)) : 0
+  const avgHoursPerWorkDay = totals.totalWorkDays
+    ? Number((totals.totalHours / totals.totalWorkDays).toFixed(2))
+    : 0
 
-  // Top overtime (הגדרה פשוטה: שעות מעל 9 ביום)
+  // Overtime (hours above 9/day)
   const topOvertime = await AttendanceRecord.aggregate([
     { $match: { date: { $gte: from, $lte: now }, type: 'work' } },
     { $addFields: { overtime: { $max: [0, { $subtract: ['$hours', 9] }] } } },
@@ -58,10 +65,23 @@ async function fetchKPIs() {
     { $limit: 5 }
   ])
 
-  // העשרה בשמות
-  const ids = topOvertime.map(r => r._id)
-  const emps = await Employee.find({ id: { $in: ids } }, { id:1, name:1 }).lean()
+  // Enrich names for all involved employees
+  const ids = Array.from(new Set([
+    ...perEmp.map(r => r._id),
+    ...topOvertime.map(r => r._id),
+  ]))
+  const emps = await Employee.find({ id: { $in: ids } }, { id: 1, name: 1 }).lean()
   const nameMap = new Map(emps.map(e => [e.id, e.name]))
+
+  const perEmployee = perEmp.map(r => ({
+    employeeId: r._id,
+    name: nameMap.get(r._id) || r._id,
+    workDays: r.workDays || 0,
+    hours: Number((r.hours || 0).toFixed(2)),
+    avgHoursOnWorkDays: r.workDays ? Number(((r.hours || 0) / r.workDays).toFixed(2)) : 0,
+    sickDays: r.sickDays || 0,
+    vacationDays: r.vacDays || 0,
+  }))
 
   const topOvertimeEnriched = topOvertime.map(r => ({
     employeeId: r._id,
@@ -76,73 +96,114 @@ async function fetchKPIs() {
     avgHoursPerWorkDay,
     totalSickDays: totals.totalSickDays,
     totalVacationDays: totals.totalVacationDays,
-    topOvertime: topOvertimeEnriched
+    topOvertime: topOvertimeEnriched,
+    perEmployee
   }
 }
 
-// --- Fallback מקומי: מייצר תובנות בלי AI ---
+// --- Manager dashboard (server-side, no AI) ---
+function buildDashboard(kpis) {
+  const per = kpis.perEmployee || []
+
+  const sortBy = (field, desc = true) =>
+    [...per].sort((a, b) => desc ? (b[field] - a[field]) : (a[field] - b[field]))
+
+  const pick = (arr, n = 5, fields = ['name']) =>
+    arr.slice(0, n).map(x => {
+      const out = {}
+      for (const f of fields) out[f] = x[f]
+      out.employeeId = x.employeeId
+      return out
+    })
+
+  const mostHours = pick(sortBy('hours'), 5, ['name', 'hours', 'workDays', 'avgHoursOnWorkDays'])
+  const mostWorkDays = pick(sortBy('workDays'), 5, ['name', 'workDays', 'hours'])
+  const mostSickDays = pick(sortBy('sickDays'), 5, ['name', 'sickDays', 'workDays'])
+  const mostVacationDays = pick(sortBy('vacationDays'), 5, ['name', 'vacationDays', 'workDays'])
+  const overtime = (kpis.topOvertime || []).slice(0, 5)
+
+  const highlights = []
+  if (mostHours[0]) {
+    highlights.push(`Top total hours: ${mostHours[0].name} with ${mostHours[0].hours}h in the last 30 days.`)
+  }
+  if (overtime[0]?.overtimeHours >= 15) {
+    highlights.push(`${overtime[0].name} leads overtime (${overtime[0].overtimeHours}h OT). Consider load balancing.`)
+  }
+  if (kpis.avgHoursPerWorkDay >= 8.8) {
+    highlights.push(`High average hours per workday: ${kpis.avgHoursPerWorkDay}h.`)
+  }
+  if (kpis.employees > 0) {
+    const sickPerEmp = Number((kpis.totalSickDays / kpis.employees).toFixed(2))
+    if (sickPerEmp >= 0.4) {
+      highlights.push(`Average sick days per employee: ${sickPerEmp}.`)
+    }
+  }
+
+  return {
+    leaderboards: { mostHours, mostWorkDays, mostSickDays, mostVacationDays, overtime },
+    highlights
+  }
+}
+
+// --- Local (non-AI) fallback insights ---
 function localFallback(kpis, userQuestion) {
   const insights = []
   const { employees, avgHoursPerWorkDay, totalSickDays, totalVacationDays, topOvertime } = kpis
 
-  // 1) שעות ממוצעות גבוהות
   if (avgHoursPerWorkDay >= 8.8) {
     insights.push({
       id: 'avg_hours_high',
-      title: 'ממוצע שעות גבוה',
-      summary: `שעות ממוצעות לעובד ביום עבודה ${avgHoursPerWorkDay}h ב-30 ימים.`,
+      title: 'High Average Hours',
+      summary: `Average hours per workday is ${avgHoursPerWorkDay}h over the last 30 days.`,
       metric: `${avgHoursPerWorkDay}h`,
       severity: 'medium',
-      recommendation: 'בדקו עומסי צוות ושקלו איזון משמרות.'
+      recommendation: 'Review team workload and consider shift balancing.'
     })
   }
 
-  // 2) ימי מחלה יחסית גבוהים
   if (employees > 0) {
     const sickPerEmp = Number((totalSickDays / employees).toFixed(2))
     if (sickPerEmp >= 0.4) {
       insights.push({
         id: 'sick_days',
-        title: 'צריכת מחלה מורגשת',
-        summary: `ממוצע ${sickPerEmp} ימי מחלה לעובד ב-30 ימים.`,
+        title: 'Notable Sick Leave',
+        summary: `Avg ${sickPerEmp} sick days per employee in the last 30 days.`,
         metric: `${sickPerEmp} days/emp`,
         severity: 'medium',
-        recommendation: 'בדקו עונתיות/מגמות והציעו עבודה היברידית בימי שיא.'
+        recommendation: 'Check seasonality/trends and consider flexible/hybrid work on peaks.'
       })
     }
   }
 
-  // 3) שעות נוספות – טופ 3
-  const top3 = topOvertime.slice(0,3).map(t => `${t.name} (${t.overtimeHours}h OT)`).join(', ')
+  const top3 = (topOvertime || []).slice(0, 3).map(t => `${t.name} (${t.overtimeHours}h OT)`).join(', ')
   if (top3) {
     const high = topOvertime[0]?.overtimeHours >= 15
     insights.push({
       id: 'top_overtime',
-      title: 'שעות נוספות – מובילים',
-      summary: `מובילים בשעות נוספות: ${top3}.`,
+      title: 'Overtime Leaders',
+      summary: `Top overtime: ${top3}.`,
       metric: topOvertime[0] ? `${topOvertime[0].overtimeHours}h` : null,
       severity: high ? 'high' : 'low',
-      recommendation: 'בדקו חלוקת משימות/כוח אדם אצל העובדים המובילים.'
+      recommendation: 'Review task allocation/staffing for these employees.'
     })
   }
 
-  // 4) ימי חופשה נמוכים/גבוהים (אינדיקציה לתשישות או להפך)
   if (totalVacationDays <= employees * 0.2) {
     insights.push({
       id: 'low_vacation',
-      title: 'צריכת חופשה נמוכה',
-      summary: 'ניצול חופשה נמוך יחסית ב-30 ימים.',
+      title: 'Low Vacation Utilization',
+      summary: 'Vacation usage is relatively low in the last 30 days.',
       metric: `${totalVacationDays} days total`,
       severity: 'low',
-      recommendation: 'עודדו תכנון חופשות להפחתת שחיקה.'
+      recommendation: 'Encourage planned time off to reduce burnout.'
     })
   }
 
   while (insights.length < 3) {
     insights.push({
       id: `fill_${insights.length}`,
-      title: 'זמינות נתונים',
-      summary: 'לא זוהתה תובנה נוספת מהמדדים הקיימים.',
+      title: 'Data Availability',
+      summary: 'No additional insights were detected from the current metrics.',
       metric: null,
       severity: 'low',
       recommendation: null
@@ -150,13 +211,13 @@ function localFallback(kpis, userQuestion) {
   }
 
   const answer = userQuestion
-    ? 'מצטערת, כרגע חרגנו מהמכסה. הוצגו תובנות מקומיות לפי חישובים פנימיים.'
-    : 'הוצגו תובנות מקומיות לפי חישובים פנימיים.'
+    ? 'We hit a quota/AI issue. Showing locally computed insights.'
+    : 'Showing locally computed insights.'
 
   return { insights, answer }
 }
 
-// --- JSON Schema ל-Structured Outputs (strict) ---
+// --- JSON Schema (also used as Gemini responseSchema) ---
 const schema = {
   type: 'object',
   additionalProperties: false,
@@ -193,11 +254,54 @@ const schema = {
   required: ['kpis','insights','answer']
 }
 
-// --- קריאה ל-OpenAI עם ריטריי חכם ---
-async function callOpenAIWithRetry(kpis, userQuestion, maxRetries = 2) {
+// --- Map JSON Schema → Gemini SchemaType ---
+function toGeminiSchema(s) {
+  const mapType = (t) => {
+    if (Array.isArray(t)) return SchemaType.STRING // string|null → force as STRING
+    switch (t) {
+      case 'object': return SchemaType.OBJECT
+      case 'array': return SchemaType.ARRAY
+      case 'string': return SchemaType.STRING
+      case 'number': return SchemaType.NUMBER
+      case 'integer': return SchemaType.INTEGER
+      case 'boolean': return SchemaType.BOOLEAN
+      case 'null': return SchemaType.NULL
+      default: return SchemaType.STRING
+    }
+  }
+
+  const out = { type: mapType(s.type) }
+  if (s.description) out.description = s.description
+
+  if (s.type === 'object') {
+    out.properties = {}
+    if (s.properties) {
+      for (const [k, v] of Object.entries(s.properties)) {
+        out.properties[k] = toGeminiSchema(v)
+      }
+    }
+    if (s.required) out.required = s.required
+  } else if (s.type === 'array') {
+    out.items = toGeminiSchema(s.items)
+  } else if (s.enum) {
+    out.enum = s.enum
+  }
+  return out
+}
+const geminiResponseSchema = toGeminiSchema(schema)
+
+// --- Call Gemini with smart retries ---
+async function callGeminiWithRetry(kpis, userQuestion, maxRetries = 2) {
+  if (!gemini) {
+    return { ok: false, error: new Error('Missing GOOGLE_AI_API_KEY'), quota: true }
+  }
+
+  const model = gemini.getGenerativeModel({
+    model: 'gemini-1.5-flash', // switch to 'gemini-1.5-pro' for richer wording
+    systemInstruction: 'You are an HR ops analyst. Be concise and actionable.'
+  })
+
   const prompt = [
-    'You are an HR ops analyst. Be concise and actionable.',
-    '',
     'Here are 30-day HR/attendance KPIs as JSON:',
     JSON.stringify(kpis),
     userQuestion ? `\nManager question: ${userQuestion}` : '',
@@ -209,39 +313,26 @@ async function callOpenAIWithRetry(kpis, userQuestion, maxRetries = 2) {
 
   while (attempt <= maxRetries) {
     try {
-      const response = await client.responses.create({
-        model: 'gpt-4o-mini',
-        input: prompt,
-        text: {
-          format: {
-            type: 'json_schema',
-            name: 'ManagerInsights',
-            strict: true,
-            schema
-          }
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }]}],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: geminiResponseSchema,
+          temperature: 0.2,
         }
       })
-
-      const raw =
-        response.output_text ||
-        (Array.isArray(response.output) && response.output[0]?.content?.[0]?.text) ||
-        ''
-      const data = JSON.parse(raw)
-      return { ok: true, data, source: 'openai' }
+      const text = result.response?.text() || ''
+      const data = JSON.parse(text)
+      return { ok: true, data, source: 'gemini' }
     } catch (err) {
       lastErr = err
-      // אם זו מכסה — לא יעזור ריטריי
-      if (isQuota(err)) {
-        return { ok: false, error: err, quota: true }
-      }
-      // אם זה rate limit רגיל — ננסה שוב עם backoff
+      if (isQuota(err)) return { ok: false, error: err, quota: true }
       if (isRateLimit(err) && attempt < maxRetries) {
         const delay = Math.floor(800 * Math.pow(2, attempt) + Math.random() * 300)
         await sleep(delay)
         attempt++
         continue
       }
-      // שגיאה אחרת (400 וכו') — נצא
       break
     }
   }
@@ -252,33 +343,39 @@ router.post('/insights', async (req, res) => {
   try {
     const userQuestion = (req.body?.query || '').toString().slice(0, 2000)
 
-    // קאש: אם יש תשובה אחרונה עדכנית (10 דק') וגם אין שאלה חדשה — נחזיר קאש
+    // Serve from cache if fresh and no new question
     if (!userQuestion && cache.last && (Date.now() - cache.last.at < cache.ttlMs)) {
-      return res.json({ ok: true, kpis: cache.last.payload.kpis, ai: cache.last.payload.ai, meta: { source: 'cache' } })
+      return res.json({
+        ok: true,
+        kpis: cache.last.payload.kpis,
+        dashboard: cache.last.payload.dashboard,
+        ai: cache.last.payload.ai,
+        meta: { source: 'cache' }
+      })
     }
 
     const kpis = await fetchKPIs()
+    const dashboard = buildDashboard(kpis)
 
-    // אם אין מפתח — נחזיר פולבאק מקומי
-    if (!'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') {
+    if (!GEMINI_API_KEY) {
       const ai = localFallback(kpis, userQuestion)
-      const payload = { kpis, ai }
+      const payload = { kpis, dashboard, ai }
       cache.last = { at: Date.now(), payload }
       return res.json({ ok: true, ...payload, meta: { source: 'fallback', reason: 'no_api_key' } })
     }
 
-    const result = await callOpenAIWithRetry(kpis, userQuestion, 2)
+    const result = await callGeminiWithRetry(kpis, userQuestion, 2)
 
     if (result.ok) {
       const ai = result.data
-      const payload = { kpis, ai }
+      const payload = { kpis, dashboard, ai }
       cache.last = { at: Date.now(), payload }
       return res.json({ ok: true, ...payload, meta: { source: result.source } })
     }
 
-    // פולבאק — מכסה או שגיאות אחרות אחרי ניסיונות
+    // Fallback after retries/quota issues
     const ai = localFallback(kpis, userQuestion)
-    const payload = { kpis, ai }
+    const payload = { kpis, dashboard, ai }
     cache.last = { at: Date.now(), payload }
     return res.json({
       ok: true,

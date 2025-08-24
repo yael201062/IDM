@@ -32,7 +32,7 @@ const WorkerLayout: React.FC<Props> = ({ children }) => {
             <SidebarItem label="Personal details" icon={UserIcon} to="/personal-details" />
             <SidebarItem label="Attendance" icon={ClockIcon} to="/attendance" />
             <SidebarItem label="My requests" icon={FolderIcon} to="/my-requests" />
-            <SidebarItem label="Notifications" icon={BellIcon} to="/notifications" />
+            {/* <SidebarItem label="Notifications" icon={BellIcon} to="/notifications" /> */}
           </nav>
         </div>
         <div className="p-4 space-y-3 text-sm border-t border-gray-700">

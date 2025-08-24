@@ -34,7 +34,7 @@ const ITLayout: React.FC<Props> = ({ children }) => {
             <SidebarItem label="Personal details" icon={UserIcon} to="/personal-details" />
             <SidebarItem label="Attendance" icon={ClockIcon} to="/attendance" />
             <SidebarItem label="My requests" icon={FolderIcon} to="/my-requests" />
-            <SidebarItem label="Notifications" icon={BellIcon} to="/notifications" />
+            {/* <SidebarItem label="Notifications" icon={BellIcon} to="/notifications" /> */}
             <SidebarItem label="Employees Table" icon={TableCellsIcon} to="/employees" />
             <SidebarItem label="Permissions" icon={LockClosedIcon} to="/permissions" />
             <SidebarItem label="Roles" icon={IdentificationIcon} to="/roles" />
