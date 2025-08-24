@@ -12,6 +12,20 @@ const ctl =
 
 const label = 'block text-sm font-medium text-gray-700 mb-1'
 
+// ✅ חדש: כמו בשאר הקוד – בסיס ה־API מה־env עם ברירת מחדל ל־localhost
+const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || 'http://localhost:5000/api'
+
+// ✅ חדש: מביא כותרת Authorization אם יש טוקן (ל־/api/employees מוגן)
+const authHeaders = (): Record<string, string> => {
+  const token =
+    localStorage.getItem('token') ||
+    sessionStorage.getItem('token') ||
+    ''
+  const h: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (token) h.Authorization = `Bearer ${token}`
+  return h
+}
+
 const NewEmployeeForm: React.FC<Props> = ({ onClose, onSubmit, editingEmployee }) => {
   const [form, setForm] = useState({
     firstName: '',
@@ -48,12 +62,21 @@ const NewEmployeeForm: React.FC<Props> = ({ onClose, onSubmit, editingEmployee }
     }
   }, [editingEmployee])
 
+  // ✅ שינוי חשוב: טעינת כלל העובדים (ל־HR/IT יחזור כולם; למנהלים לפי הרשאות),
+  // ושימוש ב־Authorization + ?all=1 כדי להבטיח קבלת כולם
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/employees')
-        const data = await res.json()
-        setEmployees(data.filter((emp: any) => emp.systemRole === 'manager'))
+        const res = await fetch(`${API_BASE}/employees?all=1`, {
+          headers: { ...authHeaders() },
+        })
+        const data = await res.json().catch(() => [])
+        const all = Array.isArray(data) ? data : []
+        // מציגים רק מנהלים ברשימת ה־Direct Manager
+        const onlyManagers = all.filter(
+          (emp: any) => String(emp.systemRole || '').toLowerCase() === 'manager'
+        )
+        setEmployees(onlyManagers)
       } catch (err) {
         console.error('Failed to load employees:', err)
       }
@@ -61,10 +84,13 @@ const NewEmployeeForm: React.FC<Props> = ({ onClose, onSubmit, editingEmployee }
     fetchEmployees()
   }, [])
 
+  // (רשות) הוספתי גם Authorization ל־roles (לא מזיק אם ה־route פתוח)
   useEffect(() => {
     const fetchRoles = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/roles')
+        const res = await fetch(`${API_BASE}/roles`, {
+          headers: { ...authHeaders() },
+        })
         const data = await res.json()
         setRoles(data)
         if (editingEmployee && !editingEmployee.roleId && editingEmployee.role) {
@@ -111,15 +137,15 @@ const NewEmployeeForm: React.FC<Props> = ({ onClose, onSubmit, editingEmployee }
     setLoading(true)
     try {
       const url = editingEmployee
-        ? `http://localhost:5000/api/employees/${editingEmployee._id}`
-        : 'http://localhost:5000/api/employees'
+        ? `${API_BASE}/employees/${editingEmployee._id}` // עריכה לפי _id
+        : `${API_BASE}/employees`
       const method = editingEmployee ? 'PUT' : 'POST'
 
       console.log('Submitting new employee payload:', form)
 
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...authHeaders() },
         body: JSON.stringify(form),
       })
       const data = await res.json()
@@ -133,6 +159,14 @@ const NewEmployeeForm: React.FC<Props> = ({ onClose, onSubmit, editingEmployee }
     } finally {
       setLoading(false)
     }
+  }
+
+  // עוזר ל-label של מנהל כשאין firstName/lastName במסמך
+  const managerLabel = (emp: any) => {
+    const [n1 = '', n2 = ''] = String(emp.name || '').split('-')
+    const fn = emp.firstName || n1
+    const ln = emp.lastName || n2
+    return `${fn} ${ln}`.trim()
   }
 
   return (
@@ -206,8 +240,9 @@ const NewEmployeeForm: React.FC<Props> = ({ onClose, onSubmit, editingEmployee }
             <select name="managerId" className={ctl} value={form.managerId} onChange={handleChange}>
               <option value="">Select manager</option>
               {employees.map((emp) => (
+                // ⚠️ value הוא ת״ז (id) — זה מה שהשרת מצפה בשדה managerId
                 <option key={emp.id} value={emp.id}>
-                  {emp.firstName} {emp.lastName} ({emp.id})
+                  {managerLabel(emp)} ({emp.id})
                 </option>
               ))}
             </select>
