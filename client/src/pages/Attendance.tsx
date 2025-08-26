@@ -9,7 +9,7 @@ type AttendanceEntry = {
   hasSaved?: boolean      // קיימת רשומה היסטורית ליום הזה
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://10.10.248.150:5000'
 
 const Attendance: React.FC = () => {
   const [attendance, setAttendance] = useState<AttendanceEntry[]>([])
@@ -200,13 +200,20 @@ const Attendance: React.FC = () => {
 
     const history = (historyRaw || []).map((h: any) => {
       const ymd = normalizeYMD(h.date)
+
+      // ✨ שינוי: חילוץ HH:MM ישירות מהמחרוזת (נמנעים מהסטות טיימזון)
       const toHHmm = (v: any) => {
         if (!v) return ''
         const s = String(v)
         if (/^\d{2}:\d{2}$/.test(s)) return s
+        const iso = s.match(/T(\d{2}):(\d{2})/)
+        if (iso) return `${iso[1]}:${iso[2]}`
         const d = new Date(s)
-        return isNaN(d.getTime()) ? '' : d.toTimeString().slice(0, 5)
+        return isNaN(d.getTime())
+          ? ''
+          : String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')
       }
+
       return {
         date: ymd,
         start: toHHmm(h.start),
@@ -218,7 +225,7 @@ const Attendance: React.FC = () => {
 
     // מיזוג: היסטוריה גוברת
     const merged = defaults.map((row) => {
-      const found = history.find((h) => h.date === row.date)
+      const found = history.find((h: AttendanceEntry) => h.date === row.date)
       return found ? { ...row, ...found } : row
     })
 
@@ -291,6 +298,8 @@ const Attendance: React.FC = () => {
                   <td className="px-4 py-3">
                     <input
                       type="time"
+                      lang="en-US"      /* ✨ AM/PM */
+                      step={60}         /* ✨ דקות בלבד */
                       className={
                         "w-full border rounded px-2 py-1 text-sm " +
                         (highlight && !entry.start ? "border-red-400 bg-red-50" : "")
@@ -303,6 +312,8 @@ const Attendance: React.FC = () => {
                   <td className="px-4 py-3">
                     <input
                       type="time"
+                      lang="en-US"      /* ✨ AM/PM */
+                      step={60}         /* ✨ דקות בלבד */
                       className={
                         "w-full border rounded px-2 py-1 text-sm " +
                         (highlight && !entry.end ? "border-red-400 bg-red-50" : "")

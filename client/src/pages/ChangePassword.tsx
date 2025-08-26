@@ -22,7 +22,7 @@ const ChangePassword: React.FC = () => {
 
     setLoading(true)
     try {
-      const res = await fetch('http://localhost:5000/api/change-password', {
+      const res = await fetch('http://10.10.248.150:5000/api/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -42,7 +42,7 @@ const ChangePassword: React.FC = () => {
       }
 
       setMessage('Password changed successfully! Redirecting…')
-      setTimeout(() => navigate('/login'), 1500)
+      setTimeout(() => navigate('/dashboard'), 1500)
     } catch (err: any) {
       setMessage('Error: ' + (err?.message || String(err)))
     } finally {

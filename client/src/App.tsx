@@ -2,7 +2,7 @@ import React from 'react'
 import LayoutSelector from './layouts/LayoutSelector'
 import Dashboard from './pages/Dashboard'
 import PersonalDetails from './pages/PersonalDetails'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
 import Attendance from './pages/Attendance'
 import MyRequests from './pages/MyRequests'
@@ -15,7 +15,6 @@ import ManagerNotifications from './pages/ManagerNotifications'
 import Logout from './pages/Logout'
 import ManagerDashboard from './pages/ManagerDashboard'
 
-
 const Placeholder = ({ title }: { title: string }) => (
   <div className="p-10 text-2xl">{title}</div>
 )
@@ -23,10 +22,13 @@ const Placeholder = ({ title }: { title: string }) => (
 const App: React.FC = () => {
   return (
     <Routes>
+\      <Route path="/" element={<Navigate to="/login" replace />} />
+
       <Route path="/login" element={<Login />} />
       <Route path="/change-password" element={<ChangePassword />} />
+
       <Route element={<LayoutSelector />}>
-        <Route path="/" element={<Dashboard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/personal-details" element={<PersonalDetails />} />
         <Route path="/attendance" element={<Attendance />} />
         <Route path="/my-requests" element={<MyRequests />} />

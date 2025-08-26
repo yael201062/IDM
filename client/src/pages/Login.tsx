@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'     // <== הסרתי Link
 import { useUser } from '../context/UserContext'
 
 const Login: React.FC = () => {
@@ -17,13 +17,12 @@ const Login: React.FC = () => {
     setLoading(true)
 
     try {
-      const res = await fetch('http://localhost:5000/api/login', {
+      const res = await fetch('http://10.10.248.150:5000/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       })
 
-      // ננסה לקרוא תגובה (טקסט/JSON) גם כשיש שגיאה:
       const text = await res.text()
       let data: any = {}
       try { data = text ? JSON.parse(text) : {} } catch { data = { error: text } }
@@ -38,11 +37,17 @@ const Login: React.FC = () => {
         return
       }
 
-      await login(data.token)            // לשמור token בקונטקסט ול-localStorage
-      if (data.mustChangePassword) {
-        navigate('/change-password')
+      if (data.active === false) {
+        setError('Your account is inactive. Please contact support.')
+        return
+      }
+
+      await login(data.token)
+
+      if (data.active === true && data.mustChangePassword === true) {
+        navigate('/change-password', { state: { email }, replace: true })
       } else {
-        navigate('/')                    // הביתה
+        navigate('/dashboard')
       }
     } catch (err: any) {
       setError(err?.message || 'Login failed')
@@ -89,12 +94,6 @@ const Login: React.FC = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
-
-            {/* <div className="text-right text-sm text-gray-500 mb-6">
-              <Link to="/change-password" className="hover:underline">
-                Forgot password?
-              </Link>
-            </div> */}
 
             <button
               type="submit"

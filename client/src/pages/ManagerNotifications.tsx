@@ -10,7 +10,7 @@ interface Request {
   employeeId: string
 }
 
-const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || 'http://localhost:5000/api' // ✅ חדש
+const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || 'http://10.10.248.150:5000/api' // ✅ חדש
 
 const ManagerNotifications: React.FC = () => {
   const { user } = useUser()

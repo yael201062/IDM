@@ -38,7 +38,7 @@ type Employee = {
 }
 
 // --- Config ---
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://10.10.248.150:5000'
 
 const PersonalDetails: React.FC = () => {
    const navigate = useNavigate()   
@@ -272,6 +272,7 @@ function EditableDetailRow<TField extends keyof Employee>({
       onLocalChange(fieldValue) // אופטימיסטי: עדכון ה‑state בהורה
       setIsEditing(false)
       setMsg('Saved ✓')
+          window.dispatchEvent(new CustomEvent('profile-updated'))
     } catch (e: any) {
       console.error(e)
       setMsg(e?.message || 'Save failed')

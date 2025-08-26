@@ -7,6 +7,8 @@ type DecodedToken = {
   empId: string
   email: string
   exp: number
+  employeeId?: string
+  id?: string
 }
 
 type EmployeeHit = {
@@ -36,7 +38,7 @@ type SearchResults = {
   adGroups: { group: string; roleName: string }[]
 }
 
-const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || 'http://localhost:5000/api'
+const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || 'http://10.10.248.150:5000/api'
 
 const Header: React.FC = () => {
   const { token } = useUser()
@@ -63,17 +65,50 @@ const Header: React.FC = () => {
     return h
   }, [token])
 
-  // פרטי משתמש (כפי שהיה)
+  // ★ נשמור את empId לשימושי רענון
+  const empIdRef = useRef<string | null>(null)
+
+  // ★ פונקציה שמרעננת פרטי משתמש מהשרת (ללא Cache)
+  const refreshUser = async () => {
+    if (!token || !empIdRef.current) return
+    try {
+      const res = await fetch(`${API_BASE}/employees/${empIdRef.current}`, {
+        headers: { ...authHeaders },
+        cache: 'no-store',
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      const displayName =
+        data.name ||
+        [data.firstName, data.lastName].filter(Boolean).join('-') ||
+        'User'
+      setName(displayName)
+      setEmail(data.email || 'user@domain.com')
+    } catch (err) {
+      console.error('Failed to refresh user info', err)
+    }
+  }
+
+  // פרטי משתמש (כפי שהיה) + ★ קיבוע empId ורענון ללא cache
   useEffect(() => {
     const fetchUser = async () => {
       if (!token) return
       try {
-        const decoded: DecodedToken = jwtDecode(token)
-        const res = await fetch(`${API_BASE}/employees/${decoded.empId}`, {
+        const decoded = jwtDecode(token) as DecodedToken
+        const empId = decoded.empId || decoded.employeeId || decoded.id || null
+        empIdRef.current = empId // ★ חשוב לרענונים הבאים
+        if (!empId) return
+
+        const res = await fetch(`${API_BASE}/employees/${empId}`, {
           headers: { ...authHeaders },
+          cache: 'no-store', // ★ אל תשתמש בקאש
         })
         const data = await res.json()
-        setName(data.name || 'User')
+        const displayName =
+          data.name ||
+          [data.firstName, data.lastName].filter(Boolean).join('-') ||
+          'User'
+        setName(displayName)
         setEmail(data.email || 'user@domain.com')
       } catch (err) {
         console.error('Failed to load user info', err)
@@ -82,6 +117,13 @@ const Header: React.FC = () => {
     fetchUser()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
+
+  // ★ להאזין לאירוע שמגיע ממסך הפרטים אחרי שמירה
+  useEffect(() => {
+    const handler = () => { refreshUser() }
+    window.addEventListener('profile-updated', handler as EventListener)
+    return () => window.removeEventListener('profile-updated', handler as EventListener)
+  }, [token, authHeaders])
 
   // סגירה בלחיצה מחוץ לתיבת התוצאות
   useEffect(() => {
@@ -109,7 +151,6 @@ const Header: React.FC = () => {
       setLoading(true)
       setError(null)
       try {
-        // Employees — נביא את כולם (לפי הרשאות השרת) ואז נסנן בצד לקוח
         const [employeesRes, rolesRes, permsRes] = await Promise.all([
           fetch(`${API_BASE}/employees?all=1`, { headers: { ...authHeaders } }).catch(() => null),
           fetch(`${API_BASE}/roles`, { headers: { ...authHeaders } }).catch(() => null),
@@ -189,7 +230,6 @@ const Header: React.FC = () => {
           />
           <MagnifyingGlassIcon className="h-5 w-5 text-gray-500 absolute left-3 top-2.5" />
 
-          {/* תיבת תוצאות */}
           {open && (
             <div className="absolute mt-2 w-[28rem] right-0 z-50 rounded-xl bg-white text-black shadow-xl border border-gray-200">
               <div className="px-4 py-3 border-b flex items-center justify-between">
@@ -222,7 +262,7 @@ const Header: React.FC = () => {
                             </div>
                           </div>
                           <a
-                            href="/employees" // 👈 אפשר להחליף לניווט ייעודי אם יש
+                            href="/employees"
                             className="text-xs text-blue-600 hover:underline shrink-0"
                           >
                             Open

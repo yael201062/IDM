@@ -18,12 +18,11 @@ const isManager = (role) => role === 'manager';
 async function resolvePersonalIdFromUser(user) {
   if (!user) return null;
 
-  // ✅ שינוי: ניקח מועמדים אפשריים לת״ז מתוך הטוקן (כולל empId/employeeId/personalId)
   const candidates = [
-    user.empId,        // נפוץ בטוקן אצלך
+    user.empId,
     user.employeeId,
     user.personalId,
-    user.id,           // מהגרסה הקודמת
+    user.id,
   ]
     .map(v => (v == null ? '' : String(v)))
     .filter(Boolean);
@@ -32,7 +31,6 @@ async function resolvePersonalIdFromUser(user) {
     if (/^\d{9}$/.test(cand)) return cand;
   }
 
-  // לפי _id/ mongoId
   const objectId =
     (user._id && String(user._id)) ||
     (user.mongoId && String(user.mongoId)) ||
@@ -42,13 +40,11 @@ async function resolvePersonalIdFromUser(user) {
     if (emp?.id) return emp.id;
   }
 
-  // לפי email
   if (user.email) {
     const emp = await Employee.findOne({ email: user.email }).lean();
     if (emp?.id) return emp.id;
   }
 
-  // לפי username/samAccountName
   const userName = user.username || user.userName || user.samAccountName || null;
   if (userName) {
     const emp = await Employee.findOne({ id: String(userName) }).lean();
@@ -60,11 +56,9 @@ async function resolvePersonalIdFromUser(user) {
 
 /* === NEW: גזירת systemRole אפקטיבי מהטוקן או מה-DB (אם חסר בטוקן) === */
 async function getEffectiveSysRole(user) {
-  // קודם מהטוקן
   let sys = String(user?.systemRole || '').trim().toLowerCase();
   if (sys) return sys;
 
-  // אם חסר – נאתר ת"ז של המשתמש המחובר ונשלוף מה-DB
   const personalId = await resolvePersonalIdFromUser(user);
   if (!personalId) return '';
 
@@ -120,6 +114,9 @@ router.post('/', async (req, res) => {
       password: hashedPassword,
       systemRole,
       managerId,
+
+      // ★ תוספת מינימלית: לסמן במונגו שחובה להחליף סיסמה (תואם ChangePasswordAtLogon ב-AD)
+      mustChangePassword: true,
     });
 
     await employee.save();
@@ -265,8 +262,6 @@ router.post('/', async (req, res) => {
 router.get('/', auth, async (req, res) => {
   try {
     const rawUser = req.user || {};
-
-    // ⚠️ שינוי כאן: שימוש ב-systemRole אפקטיבי (מהטוקן או מה-DB)
     const sysRole = await getEffectiveSysRole(rawUser);
 
     const scope = String(req.query.scope || '').toLowerCase();
@@ -425,52 +420,52 @@ router.get('/:id', async (req, res) => {
 });
 
 /* ===================== PUT /api/employees/:id ===================== */
-/* שינוי קריטי (מסמן ⭐):
-   ⭐ התייחסות ל-param כאל Mongo _id אם הוא ObjectId חוקי,
-     אחרת כ-id אישי (ת״ז). אין עוד CastError על _id כאשר מעבירים ת״ז. */
 router.put('/:id', async (req, res) => {
   try {
-    const updates = { ...req.body };
-    const param = req.params.id;
-    const isOid = mongoose.Types.ObjectId.isValid(param); // ⭐
+    const param = String(req.params.id || '');
+    const isOid = mongoose.Types.ObjectId.isValid(param);
 
-    if (updates.firstName && updates.lastName) {
-      updates.name = `${updates.firstName}-${updates.lastName}`;
-    }
+    // פילטר לפי ObjectId או לפי "id" הארגוני (ת"ז)
+    const filter = isOid ? { _id: param } : { id: param };
 
-    // ⭐ שולפים "prev" לפי סוג הפרמטר
-    const prev = isOid
-      ? await Employee.findById(param)
-      : await Employee.findOne({ id: param });
-
+    // נטען את המסמך הקיים כדי שנוכל להשלים name נכון
+    const prev = await Employee.findOne(filter);
     if (!prev) return res.status(404).json({ error: 'Employee not found' });
 
-    // ⭐ עדכון לפי סוג הפרמטר
-    const updatedEmployee = isOid
-      ? await Employee.findByIdAndUpdate(param, updates, { new: true })
-      : await Employee.findOneAndUpdate({ id: param }, updates, { new: true });
+    // נשמור רק שדות שמותר לעדכן (כדי לא "לזרוק" שדות strict)
+    const ALLOWED = [
+      'firstName', 'lastName', 'phone', 'email', 'address', 'birthday',
+      'department', 'position', 'role', 'roleId', 'managerId',
+      'status', 'start', 'end'
+    ];
 
-    if (!updatedEmployee) return res.status(404).json({ error: 'Employee not found' });
-
-    // עדכון מוני roles אם הוחלף roleId
-    const prevRoleId = String(prev.roleId || '');
-    const nextRoleId = String(updatedEmployee.roleId || '');
-    if (prevRoleId !== nextRoleId) {
-      if (prev.roleId) {
-        await Role.findByIdAndUpdate(prev.roleId, { $inc: { usersCount: -1 } }).catch(() => {});
-        console.log('↘️ decremented usersCount for roleId', prev.roleId);
-      }
-      if (updatedEmployee.roleId) {
-        await Role.findByIdAndUpdate(updatedEmployee.roleId, { $inc: { usersCount: 1 } }).catch(() => {});
-        console.log('↗️ incremented usersCount for roleId', updatedEmployee.roleId);
+    const updates = {};
+    for (const k of ALLOWED) {
+      if (Object.prototype.hasOwnProperty.call(req.body, k)) {
+        updates[k] = req.body[k];
       }
     }
+
+    // מחשבים name גם אם שונה רק אחד מהם
+    if ('firstName' in updates || 'lastName' in updates) {
+      const fn = (updates.firstName ?? prev.firstName ?? '').toString();
+      const ln = (updates.lastName  ?? prev.lastName  ?? '').toString();
+      updates.name = [fn, ln].filter(Boolean).join('-');
+    }
+
+    // מבצעים עדכון עם $set + ולידציות ומחזירים את המסמך המעודכן
+    const updatedEmployee = await Employee.findOneAndUpdate(
+      filter,
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).lean();
 
     return res.json(updatedEmployee);
   } catch (err) {
     console.error('❌ Update error:', err);
-    res.status(500).json({ error: 'Failed to update employee' });
+    return res.status(500).json({ error: 'Failed to update employee' });
   }
 });
+
 
 module.exports = router;

@@ -20,7 +20,7 @@ type AiPayload = {
   answer: string
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://10.10.248.150:5000'
 
 const SeverityBadge: React.FC<{ level: Insight['severity'] }> = ({ level }) => {
   const map: Record<Insight['severity'], string> = {

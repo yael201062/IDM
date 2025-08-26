@@ -49,7 +49,7 @@ type SummaryResponse = {
   }
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://10.10.248.150:5000'
 
 const DashboardPage: React.FC = () => {
   const { token } = useUser()

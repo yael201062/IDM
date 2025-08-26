@@ -14,7 +14,7 @@ type Employee = {
   end?: string
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://10.10.248.150:5000'
 
 /** פונקציה קטנה לנרמל שם */
 const displayName = (emp: Employee) => {

@@ -54,7 +54,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const loadUserFromToken = async (t: string) => {
     try {
       const decoded = jwtDecode<JwtPayload>(t)
-      const res = await fetch(`http://localhost:5000/api/employees/${decoded.empId}`, {
+      const res = await fetch(`http://10.10.248.150:5000/api/employees/${decoded.empId}`, {
         headers: { Authorization: `Bearer ${t}` },
       })
       const data = await res.json()

@@ -2,22 +2,70 @@
 const express = require('express')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
+const { exec } = require('child_process')              // ✨ חדש: עדכון AD
 const Employee = require('../models/Employee')
 const router = express.Router()
 
-/** עוזר: איתור עובד ממבנה ה-JWT */
+
+/** ✨ עוזר: עדכון סיסמה ב-AD וביטול הדרישה להחליף בסשן הבא */
+function updateADPasswordAndClearFlag(samAccountName, newPassword) {
+  return new Promise((resolve, reject) => {
+    const adUser = process.env.AD_USERNAME || ''
+    const adPass = process.env.AD_PASSWORD || ''
+    if (!adUser || !adPass) {
+      return reject(new Error('AD credentials are not configured (AD_USERNAME/AD_PASSWORD)'))
+    }
+    if (!samAccountName) {
+      return reject(new Error('Missing samAccountName for AD update'))
+    }
+    const idSafe = String(samAccountName).replace(/'/g, "''")
+    const pwSafe = String(newPassword).replace(/'/g, "''")
+
+    const ps = [
+      'Import-Module ActiveDirectory;',
+      `$p = ConvertTo-SecureString '${adPass}' -AsPlainText -Force;`,
+      `$cred = New-Object System.Management.Automation.PSCredential('${adUser}', $p);`,
+      `$newPw = ConvertTo-SecureString '${pwSafe}' -AsPlainText -Force;`,
+      // מחליף סיסמה
+      `Set-ADAccountPassword -Identity '${idSafe}' -NewPassword $newPw -Reset -Credential $cred -ErrorAction Stop;`,
+      // מבטל את ChangePasswordAtLogon
+      `Set-ADUser -Identity '${idSafe}' -ChangePasswordAtLogon $false -Credential $cred -ErrorAction Stop;`,
+      // (רשות) שחרור נעילה אם קיימת
+      `try { Unlock-ADAccount -Identity '${idSafe}' -Credential $cred -ErrorAction SilentlyContinue } catch {}`,
+      `Write-Output 'OK'`
+    ].join(' ')
+
+    exec(`powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "${ps}"`,
+      (err, stdout, stderr) => {
+        if (err) return reject(err)
+        const out = String(stdout || '').trim()
+        if (/^OK$/i.test(out)) return resolve(true)
+        if (stderr && /error/i.test(String(stderr))) return reject(new Error(stderr))
+        resolve(true)
+      })
+  })
+}
+
 async function findEmployeeFromToken(decoded) {
-  // תחילה נסה לפי Mongo _id אם קיים
+  // לפי Mongo _id
+  if (decoded._id) {
+    const byId = await Employee.findById(decoded._id)
+    if (byId) return byId
+  }
+  // לפי ת"ז ארגונית מהטוקן (empId)
+  if (decoded.empId) {
+    const byEmpId = await Employee.findOne({ id: decoded.empId })
+    if (byEmpId) return byEmpId
+  }
+  // תאימות לגרסאות קודמות: mongoId / id
   if (decoded.mongoId) {
     const byMongo = await Employee.findById(decoded.mongoId)
     if (byMongo) return byMongo
   }
-  // אח"כ לפי ת״ז ארגונית (השדה id בסכמה)
   if (decoded.id) {
     const byOrgId = await Employee.findOne({ id: decoded.id })
     if (byOrgId) return byOrgId
   }
-  // לבסוף לפי אימייל מה-token (אם יש)
   if (decoded.email) {
     const byEmail = await Employee.findOne({ email: decoded.email })
     if (byEmail) return byEmail
@@ -25,14 +73,11 @@ async function findEmployeeFromToken(decoded) {
   return null
 }
 
-/** חובה: מדיניות סיסמה (אופציונלי, דוגמה פשוטה) */
 function validatePassword(pw) {
   if (typeof pw !== 'string' || pw.length < 8) return 'Password must be at least 8 characters'
-  // אפשר להקשיח: אות גדולה/קטנה/מספר/תווים מיוחדים וכו'
   return null
 }
 
-/** 1) החלפת סיסמה לעצמי (מחייב Authorization) */
 router.post('/', async (req, res) => {
   const auth = req.headers.authorization
   if (!auth) return res.status(401).json({ error: 'Unauthorized' })
@@ -54,18 +99,19 @@ router.post('/', async (req, res) => {
     const user = await findEmployeeFromToken(decoded)
     if (!user) return res.status(404).json({ error: 'User not found' })
 
+    await updateADPasswordAndClearFlag(user.id, password)
+
     user.password = await bcrypt.hash(password, 10)
     user.mustChangePassword = false
     await user.save()
 
     return res.json({ message: 'Password updated successfully' })
   } catch (e) {
-    console.error(e)
-    return res.status(500).json({ error: 'Server error' })
+    console.error('change-password error:', e)
+    return res.status(500).json({ error: 'Failed to update password in AD. Please contact IT.' })
   }
 })
 
-/** 2) החלפת סיסמה לפי אימייל (למשל HR/IT/Admin) */
 router.post('/by-email', async (req, res) => {
   const auth = req.headers.authorization
   if (!auth) return res.status(401).json({ error: 'Unauthorized' })
@@ -78,7 +124,6 @@ router.post('/by-email', async (req, res) => {
     return res.status(401).json({ error: 'Invalid token' })
   }
 
-  // בדיקת הרשאה בסיסית: רק hr / it (או מה שתרצי)
   const role = decoded.systemRole
   if (!['hr', 'it'].includes(role)) {
     return res.status(403).json({ error: 'Forbidden' })
@@ -95,14 +140,16 @@ router.post('/by-email', async (req, res) => {
     const user = await Employee.findOne({ email })
     if (!user) return res.status(404).json({ error: 'User not found' })
 
+    await updateADPasswordAndClearFlag(user.id, password)
+
     user.password = await bcrypt.hash(password, 10)
     user.mustChangePassword = false
     await user.save()
 
     return res.json({ message: 'Password updated successfully' })
   } catch (e) {
-    console.error(e)
-    return res.status(500).json({ error: 'Server error' })
+    console.error('change-password/by-email error:', e)
+    return res.status(500).json({ error: 'Failed to update password in AD. Please contact IT.' })
   }
 })
 

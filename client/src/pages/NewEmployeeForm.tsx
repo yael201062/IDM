@@ -12,8 +12,8 @@ const ctl =
 
 const label = 'block text-sm font-medium text-gray-700 mb-1'
 
-// ✅ חדש: כמו בשאר הקוד – בסיס ה־API מה־env עם ברירת מחדל ל־localhost
-const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || 'http://localhost:5000/api'
+// ✅ חדש: כמו בשאר הקוד – בסיס ה־API מה־env עם ברירת מחדל ל־10.10.248.150
+const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || 'http://10.10.248.150:5000/api'
 
 // ✅ חדש: מביא כותרת Authorization אם יש טוקן (ל־/api/employees מוגן)
 const authHeaders = (): Record<string, string> => {

@@ -29,7 +29,7 @@ const MyRequests: React.FC = () => {
   useEffect(() => {
     const fetchRequests = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/api/requests/mine`, {
+        const res = await fetch(`http://10.10.248.150:5000/api/requests/mine`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
           },
@@ -53,7 +53,7 @@ const MyRequests: React.FC = () => {
     }
 
     try {
-      const res = await fetch(`http://localhost:5000/api/requests`, {
+      const res = await fetch(`http://10.10.248.150:5000/api/requests`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

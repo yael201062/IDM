@@ -15,7 +15,7 @@ type PermissionDto = {
   updatedAt?: string
 }
 
-const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || 'http://localhost:5000/api'
+const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || 'http://10.10.248.150:5000/api'
 
 /* -------------------- Modal עריכה: רשימה אחת של קבוצות AD -------------------- */
 const EditPermModal: React.FC<{
